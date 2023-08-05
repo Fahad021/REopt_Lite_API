@@ -76,10 +76,11 @@ Corresponding string interval name given a float time step in hours
 """
 time_step_hour_to_minute_interval_lookup = {
     round(float(1), 2): '60',
-    round(float(0.5), 2): '30',
-    round(float(0.25), 2): '15',
-    round(float(5/60), 2): '5',
-    round(float(1/60), 2): '1'}
+    round(0.5, 2): '30',
+    round(0.25, 2): '15',
+    round(float(5 / 60), 2): '5',
+    round(float(1 / 60), 2): '1',
+}
 
 
 """
@@ -107,17 +108,13 @@ def combine_wind_files(file_resource_heights, file_combined):
         if os.path.isfile(f):
             with open(f) as file_in:
                 csv_reader = csv.reader(file_in, delimiter=',')
-                line = 0
-                for row in csv_reader:
+                for line, row in enumerate(csv_reader):
                     if line < 2:
                         data[line] = row
+                    elif line >= len(data):
+                        data.append(row)
                     else:
-                        if line >= len(data):
-                            data.append(row)
-                        else:
-                            data[line] += row
-                    line += 1
-
+                        data[line] += row
     with open(file_combined, 'w') as fo:
         writer = csv.writer(fo)
         writer.writerows(data)
@@ -226,7 +223,6 @@ class WindSAMSDK:
             self.wind_meters_per_sec = wind_meters_per_sec
             self.use_input_data = True
 
-        # If we need to download the resource data
         elif file_resource_full is None or not self.file_downloaded:
             # TODO: check input_files for previously downloaded wind resource file
             from reo.src.wind_resource import get_wind_resource_developer_api
@@ -247,16 +243,17 @@ class WindSAMSDK:
 
             # if there is no resource file passed in, create one
             if file_resource_full is None:
-                file_resource_base = os.path.join(path_inputs,
-                                                  str(latitude) + "_" + str(longitude) + "_windtoolkit_" + str(
-                                                      year) + "_" + str(self.interval) + "min")
+                file_resource_base = os.path.join(
+                    path_inputs,
+                    f"{str(latitude)}_{str(longitude)}_windtoolkit_{str(year)}_{str(self.interval)}min",
+                )
                 file_resource_full = file_resource_base
 
             # Regardless of whether file passed in, create the intermediate files required to download
             file_resource_heights = {}
             for h in heights:
-                file_resource_heights[h] = file_resource_base + '_' + str(h) + 'm.srw'
-                file_resource_full += "_" + str(h) + 'm'
+                file_resource_heights[h] = f'{file_resource_base}_{str(h)}m.srw'
+                file_resource_full += f"_{str(h)}m"
             file_resource_full += ".srw"
 
             for height, f in file_resource_heights.items():
@@ -274,8 +271,8 @@ class WindSAMSDK:
                 self.file_downloaded = combine_wind_files(file_resource_heights, file_resource_full, path_inputs)
 
         self.file_resource_full = file_resource_full
-        self.wind_turbine_powercurve = wind_turbine_powercurve_lookup[size_class] 
-        self.system_capacity = system_capacity_lookup[size_class] 
+        self.wind_turbine_powercurve = wind_turbine_powercurve_lookup[size_class]
+        self.system_capacity = system_capacity_lookup[size_class]
         self.rotor_diameter = rotor_diameter_lookup[size_class] 
 
         self.ssc = []
@@ -370,19 +367,11 @@ class WindSAMSDK:
             timesteps = []
             timesteps_base = range(0, 8760)
             for ts_b in timesteps_base:
-                for step in range(0, self.time_steps_per_hour):
-                    timesteps.append(ts_b)
-
-        # downscaled run (i.e 288 steps per year)
+                timesteps.extend(ts_b for _ in range(0, self.time_steps_per_hour))
         else:
             timesteps = range(0, 8760, int(1 / self.time_steps_per_hour))
 
-        prod_factor = []
-
-        for hour in timesteps:
-            #prod_factor.append(round(prod_factor_original[hour]/self.time_steps_per_hour, 3))
-            prod_factor.append(prod_factor_original[hour])
-
+        prod_factor = [prod_factor_original[hour] for hour in timesteps]
         return prod_factor_original
 
 

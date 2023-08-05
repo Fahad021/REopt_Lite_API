@@ -48,7 +48,7 @@ def page_not_found(request, url):
     :param url:
     :return:
     """
-    return HttpResponse("Invalid URL: {}".format(url), status=404)
+    return HttpResponse(f"Invalid URL: {url}", status=404)
 
 urlpatterns = [
     url(r'^v1/job/(?P<run_uuid>[0-9a-f-]+)/proforma/?$', proforma, name='proforma'),

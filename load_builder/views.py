@@ -41,9 +41,7 @@ def check_load_builder_inputs(loads_table):
     for load in loads_table:
         inputs = load.keys()
         for required_input in required_inputs:
-            if required_input in inputs:
-                pass
-            else:
+            if required_input not in inputs:
                 return False
     return True
 
@@ -80,34 +78,33 @@ def load_builder(request):
     :return: 8760 list for critical_load_kw input into REOpt
     """
     try:
-        if request.method == 'POST':
-            post = request.body
-            try:
-                # Try to import JSON, then try to import CSV
-                try:
-                    loads_table = json.loads(post)
-                except:
-                    loads_table = unicode(post, "utf-8")
-                finally:
-                    if not isinstance(loads_table, list):
-                        csv_reader = csv.DictReader(io.StringIO(loads_table))
-                        loads_table = list(csv_reader)
-
-            except:
-                return JsonResponse({"Error": "Invalid JSON or CSV"})
-
-            # Validation
-            if not check_load_builder_inputs(loads_table):
-                return JsonResponse({"Error": "There are missing required inputs. Must include the following: 'Power (W)', 'Quantity', '% Run Time', 'Start Mo.', 'Stop Mo.', 'Start Hr.', 'Stop Hr.'"})
-            if not validate_load_builder_inputs(loads_table):
-                return JsonResponse({"Error": "Some input values are invalid"})
-
-            # Run conversion and respond
-            loads_kw = convert_loads(loads_table)
-            return JsonResponse({"critical_loads_kw": loads_kw})
-
-        else:
+        if request.method != 'POST':
             return JsonResponse({"Error": "Must POST a JSON based on the SolarResilient component based load builder downloadable CSV"})
+
+        post = request.body
+        try:
+            # Try to import JSON, then try to import CSV
+            try:
+                loads_table = json.loads(post)
+            except:
+                loads_table = unicode(post, "utf-8")
+            finally:
+                if not isinstance(loads_table, list):
+                    csv_reader = csv.DictReader(io.StringIO(loads_table))
+                    loads_table = list(csv_reader)
+
+        except:
+            return JsonResponse({"Error": "Invalid JSON or CSV"})
+
+        # Validation
+        if not check_load_builder_inputs(loads_table):
+            return JsonResponse({"Error": "There are missing required inputs. Must include the following: 'Power (W)', 'Quantity', '% Run Time', 'Start Mo.', 'Stop Mo.', 'Start Hr.', 'Stop Hr.'"})
+        if not validate_load_builder_inputs(loads_table):
+            return JsonResponse({"Error": "Some input values are invalid"})
+
+        # Run conversion and respond
+        loads_kw = convert_loads(loads_table)
+        return JsonResponse({"critical_loads_kw": loads_kw})
 
     except Exception as e:
         exc_type, exc_value, exc_traceback = sys.exc_info()

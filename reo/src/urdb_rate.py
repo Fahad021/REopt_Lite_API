@@ -127,19 +127,21 @@ class Rate(object):
             # have to replace '&' to handle url correctly
             request_params["ratesforutility"] = self.util.replace("&", "%26")
 
-        log.info('Checking URDB for {}...'.format(self.rate))
+        log.info(f'Checking URDB for {self.rate}...')
         res = requests.get(url_base, params=request_params, verify=False)
 
         if not res.ok:
-            log.debug('URDB response not OK. Code {} with message: {}'.format(res.status_code, res.text))
+            log.debug(
+                f'URDB response not OK. Code {res.status_code} with message: {res.text}'
+            )
             raise Warning('URDB response not OK.')
-            # return None
+                # return None
 
         data = json.loads(res.text, strict=False)
         rates_in_util = data['items']  # data['items'] contains a list of dicts, one dict for each rate in util
 
         if len(rates_in_util) == 0:
-            log.info('Could not find {} in URDB.'.format(self.rate))
+            log.info(f'Could not find {self.rate} in URDB.')
             return None
 
         if not using_rate_label:
@@ -160,18 +162,16 @@ class Rate(object):
             if len(start_dates) > 1 and len(start_dates) == len(matched_rates):
                 newest_index = start_dates.index(max(start_dates))
 
-            if len(matched_rates) > 0:
-                newest_rate = matched_rates[newest_index]
-                return newest_rate
-            else:
-                log.info('Could not find {} in URDB.'.format(self.rate))
-                return None
+            if matched_rates:
+                return matched_rates[newest_index]
+            log.info(f'Could not find {self.rate} in URDB.')
+            return None
 
         elif rates_in_util[0]['label'] == self.rate:
             return rates_in_util[0]
 
         else:
-            log.info('Could not find {} in URDB'.format(self.rate))
+            log.info(f'Could not find {self.rate} in URDB')
             return None
 
     # @staticmethod

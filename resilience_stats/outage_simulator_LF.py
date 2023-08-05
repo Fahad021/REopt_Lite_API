@@ -258,19 +258,31 @@ def simulate_outage(batt_kwh=0, batt_kw=0, pv_kw_ac_hourly=0, init_soc=0, critic
         r_group_hour = r_series.groupby(r_series.index.hour)
 
         x_vals = list(range(1, int(floor(r_max)+1)))
-        y_vals = list()
-        y_vals_group_month = list()
-        y_vals_group_hour = list()
+        y_vals = []
+        y_vals_group_month = []
+        y_vals_group_hour = []
 
         for hrs in x_vals:
-            y_vals.append(round(float(sum([1 if h >= hrs else 0 for h in r])) / float(n_timesteps), 4))
+            y_vals.append(
+                round(
+                    float(sum(1 if h >= hrs else 0 for h in r))
+                    / float(n_timesteps),
+                    4,
+                )
+            )
 
         width = 0
         for k, v in r_group_month:
-            tmp = list()
+            tmp = []
             max_hr = int(v.max()) + 1
             for hrs in range(max_hr):
-                tmp.append(round(float(sum([1 if h >= hrs else 0 for h in v])) / float(len(v)), 4))
+                tmp.append(
+                    round(
+                        float(sum(1 if h >= hrs else 0 for h in v))
+                        / float(len(v)),
+                        4,
+                    )
+                )
             y_vals_group_month.append(tmp)
             if max_hr > width:
                 width = max_hr
@@ -281,10 +293,16 @@ def simulate_outage(batt_kwh=0, batt_kw=0, pv_kw_ac_hourly=0, init_soc=0, critic
 
         width = 0
         for k, v in r_group_hour:
-            tmp = list()
+            tmp = []
             max_hr = int(v.max()) + 1
             for hrs in range(max_hr):
-                tmp.append(round(float(sum([1 if h >= hrs else 0 for h in v])) / float(len(v)), 4))
+                tmp.append(
+                    round(
+                        float(sum(1 if h >= hrs else 0 for h in v))
+                        / float(len(v)),
+                        4,
+                    )
+                )
             y_vals_group_hour.append(tmp)
             if max_hr > width:
                 width = max_hr

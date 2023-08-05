@@ -83,17 +83,17 @@ class CriticalLoadBAUTests(ResourceTestCaseMixin, TestCase):
                              39.7653, 47.1892, 47.1892, 47.1892, 42.9714, 47.1892, 47.1892, 47.1892, 47.1892, 20.9702,
                              15.1757, 15.3862, 15.8559, 15.9813, 16.7046, 16.5464, 17.2186, 16.8851, 17.7358, 17.2112]
 
-        d_expected = dict()
-        d_expected['load_bau'] = load_bau_expected
-        d_expected['status'] = 'optimal'
-        d_expected['total_energy_cost_bau'] = 54201.86
-        d_expected['year_one_energy_cost_bau'] = 7472.12
-        d_expected['resilience_check_flag'] = True
-        d_expected['sustain_hours'] = 4
-
+        d_expected = {
+            'load_bau': load_bau_expected,
+            'status': 'optimal',
+            'total_energy_cost_bau': 54201.86,
+            'year_one_energy_cost_bau': 7472.12,
+            'resilience_check_flag': True,
+            'sustain_hours': 4,
+        }
         try:
             check_common_outputs(self, c, d_expected)
         except:
-            print("Run {} expected outputs may have changed.".format(run_uuid))
-            print("Error message: {}".format(d['messages']))
+            print(f"Run {run_uuid} expected outputs may have changed.")
+            print(f"Error message: {d['messages']}")
             raise

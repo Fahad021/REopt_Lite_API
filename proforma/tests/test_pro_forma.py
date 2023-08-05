@@ -60,32 +60,28 @@ class CashFlowTest(ResourceTestCaseMixin, TestCase):
         initial_post = self.api_client.post(self.submit_url, format='json', data=data)
         uuid = json.loads(initial_post.content)['run_uuid']
 
-        response = json.loads(self.api_client.get(self.results_url.replace('<run_uuid>', str(uuid))).content)
-
-        # # the following is not needed b/c we test the app with Celery tasks in "eager" mode
-        # # i.e. asynchronously. If we move to testing the API, then the while loop is needed
-        # status = response['outputs']['Scenario']['status']
-        # while status == "Optimizing...":
-        #     time.sleep(2)
-        #     response = json.loads(self.api_client.get(self.results_url + uuid).content)
-        #     status = response['outputs']['Scenario']['status']
-
-        return response
+        return json.loads(
+            self.api_client.get(
+                self.results_url.replace('<run_uuid>', str(uuid))
+            ).content
+        )
 
     def test_proforma(self):
         run_output = self.get_response(self.example_reopt_request_data)
         uuid = run_output['outputs']['Scenario']['run_uuid']
         mapping = self.get_mapping(run_output, uuid)
 
-        idx = 0
         for a, b in mapping:
-            msg = "Failed at: " + str(a) + " Value: " + str(a.value) + "!= " + str(b) + " run_uuid: " + str(uuid)
+            msg = f"Failed at: {str(a)} Value: {str(a.value)}!= {str(b)} run_uuid: {str(uuid)}"
             self.assertAlmostEqual(float(a.value), b, places=2, msg=msg)
-            idx += 1
 
     def test_bad_run_uuid(self):
         run_uuid = "5"
-        response = json.loads(self.api_client.get(self.results_url.replace('<run_uuid>', str(run_uuid))).content)
+        response = json.loads(
+            self.api_client.get(
+                self.results_url.replace('<run_uuid>', run_uuid)
+            ).content
+        )
         # status = response['outputs']['Scenario']['status']
         self.assertDictEqual(response,
                              {u'outputs': {u'Scenario': {u'status': u'error'}},

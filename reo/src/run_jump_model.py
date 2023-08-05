@@ -109,18 +109,18 @@ def run_jump_model(self, dfm, data, run_uuid, bau=False):
         if isinstance(e, REoptFailedToStartError):
             raise e
         exc_type, exc_value, exc_traceback = sys.exc_info()
-        logger.error("REopt.py raise unexpected error: UUID: " + str(self.run_uuid))
+        logger.error(f"REopt.py raise unexpected error: UUID: {str(self.run_uuid)}")
         raise UnexpectedError(exc_type, exc_value, traceback.format_tb(exc_traceback), task=name, run_uuid=self.run_uuid, user_uuid=self.user_uuid)
     else:
         status = results["status"]
-        logger.info("REopt run successful. Status {}".format(status))
+        logger.info(f"REopt run successful. Status {status}")
         if bau:
             dfm['results_bau'] = results  # will be flat dict
         else:
             dfm['results'] = results
 
         if status.strip().lower() == 'timed-out':
-            msg = "Optimization exceeded timeout: {} seconds.".format(data["inputs"]["Scenario"]["timeout_seconds"])
+            msg = f'Optimization exceeded timeout: {data["inputs"]["Scenario"]["timeout_seconds"]} seconds.'
             logger.info(msg)
             raise OptimizationTimeout(task=name, message=msg, run_uuid=self.run_uuid, user_uuid=self.user_uuid)
 
@@ -129,8 +129,7 @@ def run_jump_model(self, dfm, data, run_uuid, bau=False):
             raise NotOptimal(task=name, run_uuid=self.run_uuid, status=status.strip(), user_uuid=self.user_uuid)
 
     self.profiler.profileEnd()
-    tmp = dict()
-    tmp[name+'_seconds'] = self.profiler.getDuration()
+    tmp = {f'{name}_seconds': self.profiler.getDuration()}
     ModelManager.updateModel('ProfileModel', tmp, run_uuid)
 
     # reduce the amount data being transferred between tasks

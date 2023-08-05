@@ -67,8 +67,11 @@ class TestEnergyTiers(ResourceTestCaseMixin, TestCase):
     def get_response(self, data):
         initial_post = self.api_client.post(self.submit_url, format='json', data=data)
         uuid = json.loads(initial_post.content)['run_uuid']
-        response = json.loads(self.api_client.get(self.results_url.replace('<run_uuid>', str(uuid))).content)
-        return response
+        return json.loads(
+            self.api_client.get(
+                self.results_url.replace('<run_uuid>', str(uuid))
+            ).content
+        )
 
     def test_tiered_energy_rate_and_profiler(self):
         expected_year_one_energy_cost = 2342.88
@@ -79,9 +82,11 @@ class TestEnergyTiers(ResourceTestCaseMixin, TestCase):
         messages = response['messages']
 
         try:
-            self.assertEqual(tariff_out['year_one_energy_cost_us_dollars'], expected_year_one_energy_cost,
-                             "Year one energy bill ({}) does not equal expected cost ({})."
-                             .format(tariff_out['year_one_energy_cost_us_dollars'], expected_year_one_energy_cost))
+            self.assertEqual(
+                tariff_out['year_one_energy_cost_us_dollars'],
+                expected_year_one_energy_cost,
+                f"Year one energy bill ({tariff_out['year_one_energy_cost_us_dollars']}) does not equal expected cost ({expected_year_one_energy_cost}).",
+            )
 
             self.assertGreater(profile_out['pre_setup_scenario_seconds'], 0, "Profiling results failed")
             self.assertGreater(profile_out['setup_scenario_seconds'], 0, "Profiling results failed")
@@ -90,9 +95,7 @@ class TestEnergyTiers(ResourceTestCaseMixin, TestCase):
             self.assertGreater(profile_out['parse_run_outputs_seconds'], 0, "Profiling results failed")
 
         except Exception as e:
-            error_msg = None
-            if hasattr(messages, "error"):
-                error_msg = messages.error
-            print("test_tiered_energy_rate API error message: {}".format(error_msg))
-            print("Run uuid: {}".format(response['outputs']['Scenario']['run_uuid']))
+            error_msg = messages.error if hasattr(messages, "error") else None
+            print(f"test_tiered_energy_rate API error message: {error_msg}")
+            print(f"Run uuid: {response['outputs']['Scenario']['run_uuid']}")
             raise e

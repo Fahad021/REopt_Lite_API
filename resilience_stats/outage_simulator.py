@@ -89,7 +89,7 @@ def simulate_outage(batt_kwh, batt_kw, pv_kw_ac_hourly, init_soc, critical_loads
 
             else:  # balance < 0 --> load not met by PV
                 abs_bal = abs(bal)
-                
+
                 if min(charge, batt_kw) >= abs_bal:  # battery can carry balance
                     charge = max(0, charge - abs_bal)  # prevent battery charge from going negative
                     r[n] += 1  # survived one more timestep
@@ -106,7 +106,7 @@ def simulate_outage(batt_kwh, batt_kw, pv_kw_ac_hourly, init_soc, critical_loads
                         # diesel can meet balance
                         fuel_tank_gal -= fuel_needed
                         r[n] += 1  # survived one more timestep
-                    
+
                     else:  # load not met
                         dGenMld = dGenMld[1:] + dGenMld[:1]  # shift dGenMld one timestep
                         break
@@ -118,10 +118,12 @@ def simulate_outage(batt_kwh, batt_kw, pv_kw_ac_hourly, init_soc, critical_loads
     r_avg = round((float(sum(r)) / float(len(r))/n_steps_per_hour), 2)
 
     x_vals = range(1, int(floor(r_max)+1))
-    y_vals = list()
-    for hrs in x_vals:
-        y_vals.append(round(float(sum([1 if h >= hrs else 0 for h in r])) / float(n_timesteps), 4))
-    
+    y_vals = [
+        round(
+            float(sum(1 if h >= hrs else 0 for h in r)) / float(n_timesteps), 4
+        )
+        for hrs in x_vals
+    ]
     return {"resilience_by_timestep": r,
             "resilience_hours_min": r_min,
             "resilience_hours_max": r_max,

@@ -54,6 +54,14 @@ class LoadsTestCase(TestCase):
 
         for i in range(0, len(test_cities)):
             profile = BuiltInProfile(test_latitudes[i], test_longitudes[i], "MidriseApartment", 500000)
-            self.assertEqual(profile.city, expected_ashrae_city[i], {r"reopt": {"Error": "Incorrect ASHRAE city returned for test city: " + test_cities[i] + " Expected: " + expected_ashrae_city[i] + " Actual: " + profile.city}})
+            self.assertEqual(
+                profile.city,
+                expected_ashrae_city[i],
+                {
+                    r"reopt": {
+                        "Error": f"Incorrect ASHRAE city returned for test city: {test_cities[i]} Expected: {expected_ashrae_city[i]} Actual: {profile.city}"
+                    }
+                },
+            )
 
 

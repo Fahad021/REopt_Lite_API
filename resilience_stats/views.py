@@ -50,7 +50,7 @@ class ScenarioErrored(Exception):
 
 
 def parse_system_sizes(site):
-    size_dict = dict()
+    size_dict = {}
     if "Generator" in site:
         size_dict["Generator"] = site["Generator"]["size_kw"]
     if "Storage" in site:
@@ -80,11 +80,10 @@ def resilience_stats(request, run_uuid=None, financial_check=None):
     except ValueError as e:
         if e.args[0] == "badly formed hexadecimal UUID string":
             return JsonResponse({"Error": str(e.args[0])}, status=400)
-        else:
-            exc_type, exc_value, exc_traceback = sys.exc_info()
-            err = UnexpectedError(exc_type, exc_value.args[0], exc_traceback, task='resilience_stats', run_uuid=run_uuid)
-            err.save_to_db()
-            return JsonResponse({"Error": str(err.message)}, status=400)
+        exc_type, exc_value, exc_traceback = sys.exc_info()
+        err = UnexpectedError(exc_type, exc_value.args[0], exc_traceback, task='resilience_stats', run_uuid=run_uuid)
+        err.save_to_db()
+        return JsonResponse({"Error": str(err.message)}, status=400)
 
     try:  # to run outage simulator
         scenario = ScenarioModel.objects.get(run_uuid=run_uuid)
@@ -154,8 +153,8 @@ def resilience_stats(request, run_uuid=None, financial_check=None):
                 batt_roundtrip_efficiency = batt.internal_efficiency_pct \
                                             * batt.inverter_efficiency_pct \
                                             * batt.rectifier_efficiency_pct
-                results = dict()
-                kwargs_dict = dict()
+                results = {}
+                kwargs_dict = {}
                 # if wtch and bau:
                 pool = Pool(processes=2 if wtch and bau else 1)
                 # else:
@@ -199,9 +198,9 @@ def resilience_stats(request, run_uuid=None, financial_check=None):
 
                 for k, v in p.items():
                     if k == 'wtch':
-                        results.update(v.get())
+                        results |= v.get()
                     if k == 'bau':
-                        results.update({key+'_bau': val for key, val in v.get().items()})
+                        results.update({f'{key}_bau': val for key, val in v.get().items()})
 
                 """ add avg_crit_ld and pwf to results so that avoided outage cost can be determined as:
                         avoided_outage_costs_us_dollars = resilience_hours_avg * 
@@ -232,7 +231,7 @@ def resilience_stats(request, run_uuid=None, financial_check=None):
                             return JsonResponse({"Error": e.message}, status=500)
                         raise e
                     ResilienceModel.objects.filter(id=rm.id).update(**results)
-                    
+
                 except IntegrityError:
                     # have run resiliense_stat & bau=false
                     # return both w/tech and bau
@@ -247,9 +246,7 @@ def resilience_stats(request, run_uuid=None, financial_check=None):
                 results.update({"help_text": "The present_worth_factor and avg_critical_load are provided such that one can calculate an avoided outage cost in dollars by multiplying a value of load load ($/kWh) times the avg_critical_load, resilience_hours_avg, and present_worth_factor. Note that if the outage event is 'major', i.e. only occurs once, then the present_worth_factor is 1."
                             })
 
-        response = JsonResponse(results)
-        return response
-
+        return JsonResponse(results)
     except ScenarioOptimizing:
         return JsonResponse({"Error": "The scenario is still optimizing. Please try again later."},
                             content_type='application/json', status=500)
@@ -261,7 +258,7 @@ def resilience_stats(request, run_uuid=None, financial_check=None):
     except Exception as e:
 
         if type(e).__name__ == 'DoesNotExist':
-            msg = "Scenario {} does not exist.".format(run_uuid)
+            msg = f"Scenario {run_uuid} does not exist."
             return JsonResponse({"Error": msg}, content_type='application/json', status=404)
 
 

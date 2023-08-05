@@ -53,7 +53,10 @@ class EntryResourceTest(ResourceTestCaseMixin, TestCase):
             })
 
             annual_kwh_from_api = json.loads(response.content).get('annual_kwh')
-            msg = "Loads not equal for: " + str(bldg) + " city 1: " + str(city.name) + " city 2: " + str(json.loads(response.content).get('city'))
+            msg = (
+                f"Loads not equal for: {str(bldg)} city 1: {str(city.name)} city 2: "
+                + str(json.loads(response.content).get('city'))
+            )
             self.assertEqual(annual_kwh_from_api, BuiltInProfile.annual_loads[city.name][bldg.lower()], msg=msg)
 
     def test_annual_kwh_bad_latitude(self):

@@ -110,16 +110,17 @@ def setup_scenario(self, run_uuid, data, raw_post):
             # update data inputs to reflect the pvwatts station data locations
             # must propagate array_type_to_tilt default assignment back to database
             data['inputs']['Scenario']["Site"]["PV"]["tilt"] = pv.tilt
-            tmp = dict()
-            tmp['station_latitude'] = station[0]
-            tmp['station_longitude'] = station[1]
-            tmp['station_distance_km'] = station[2]
-            tmp['tilt'] = pv.tilt                  #default tilt assigned within techs.py based on array_type
-            tmp['azimuth'] = pv.azimuth
-            tmp['max_kw'] = pv.max_kw
-            tmp['min_kw'] = pv.min_kw
+            tmp = {
+                'station_latitude': station[0],
+                'station_longitude': station[1],
+                'station_distance_km': station[2],
+                'tilt': pv.tilt,
+                'azimuth': pv.azimuth,
+                'max_kw': pv.max_kw,
+                'min_kw': pv.min_kw,
+            }
             ModelManager.updateModel('PVModel', tmp, run_uuid)
-            # TODO: remove the need for this db call by passing these values to process_results.py via reopt.jl
+                    # TODO: remove the need for this db call by passing these values to process_results.py via reopt.jl
         else:
             pv = None
 
@@ -135,13 +136,12 @@ def setup_scenario(self, run_uuid, data, raw_post):
                             **inputs_dict["Site"]["Generator"])
 
 
-        elif not inputs_dict["Site"]["Generator"]["generator_only_runs_during_grid_outage"]:
-            if inputs_dict["Site"]["Generator"]["max_kw"] > 0 or inputs_dict["Site"]["Generator"]["existing_kw"] > 0:
-                gen = Generator(dfm=dfm, run_uuid=run_uuid,
-                            outage_start_hour=inputs_dict['Site']['LoadProfile'].get("outage_start_hour"),
-                            outage_end_hour=inputs_dict['Site']['LoadProfile'].get("outage_end_hour"),
-                            time_steps_per_hour=inputs_dict.get('time_steps_per_hour'),
-                            **inputs_dict["Site"]["Generator"])
+        elif inputs_dict["Site"]["Generator"]["max_kw"] > 0 or inputs_dict["Site"]["Generator"]["existing_kw"] > 0:
+            gen = Generator(dfm=dfm, run_uuid=run_uuid,
+                        outage_start_hour=inputs_dict['Site']['LoadProfile'].get("outage_start_hour"),
+                        outage_end_hour=inputs_dict['Site']['LoadProfile'].get("outage_end_hour"),
+                        time_steps_per_hour=inputs_dict.get('time_steps_per_hour'),
+                        **inputs_dict["Site"]["Generator"])
 
 
         try:
@@ -196,7 +196,7 @@ def setup_scenario(self, run_uuid, data, raw_post):
 
         except Exception as lp_error:
             exc_type, exc_value, exc_traceback = sys.exc_info()
-            log.error("Scenario.py raising error: " + exc_value.args[0])
+            log.error(f"Scenario.py raising error: {exc_value.args[0]}")
             lp_error = LoadProfileError(exc_value.args[0], traceback.format_tb(exc_traceback), self.name, run_uuid, user_uuid=inputs_dict.get('user_uuid'))
             lp_error.save_to_db()
             raise lp_error
@@ -215,12 +215,12 @@ def setup_scenario(self, run_uuid, data, raw_post):
             # must propogate these changes back to database for proforma
             data['inputs']['Scenario']["Site"]["Wind"]["installed_cost_us_dollars_per_kw"] = wind.installed_cost_us_dollars_per_kw
             data['inputs']['Scenario']["Site"]["Wind"]["federal_itc_pct"] = wind.incentives.federal.itc
-            tmp = dict()
+            tmp = {}
             tmp['federal_itc_pct'] = wind.incentives.federal.itc
             tmp['installed_cost_us_dollars_per_kw'] = wind.installed_cost_us_dollars_per_kw
 
             ModelManager.updateModel('WindModel', tmp, run_uuid)
-            # TODO: remove the need for this db call by passing these values to process_results.py via reopt.jl
+                    # TODO: remove the need for this db call by passing these values to process_results.py via reopt.jl
 
         util = Util(dfm=dfm,
                     outage_start_hour=inputs_dict['Site']['LoadProfile'].get("outage_start_hour"),
@@ -237,7 +237,7 @@ def setup_scenario(self, run_uuid, data, raw_post):
 
         self.data = data
         self.profiler.profileEnd()
-        tmp = dict()
+        tmp = {}
         tmp['setup_scenario_seconds'] = self.profiler.getDuration()
         ModelManager.updateModel('ProfileModel', tmp, run_uuid)
         # TODO: remove the need for this db call by passing these values to process_results.py via reopt.jl
@@ -257,10 +257,10 @@ def setup_scenario(self, run_uuid, data, raw_post):
                         message = 'PV Watts could not locate a dataset station within the search radius'
                         radius =  data['inputs']['Scenario']["Site"]["PV"].get("radius") or 0
                         if radius > 0:
-                            message += " ({} miles for nsrsb, {} miles for international)".format(radius, radius*2)
+                            message += f" ({radius} miles for nsrsb, {radius * 2} miles for international)"
                         raise PVWattsDownloadError(message=message, task=self.name, run_uuid=run_uuid, user_uuid=self.data['inputs']['Scenario'].get('user_uuid'), traceback=e.args[0])
 
         exc_type, exc_value, exc_traceback = sys.exc_info()
-        log.error("Scenario.py raising error: " + str(exc_value.args[0]))
+        log.error(f"Scenario.py raising error: {str(exc_value.args[0])}")
         raise UnexpectedError(exc_type, exc_value.args[0], traceback.format_tb(exc_traceback), task=self.name, run_uuid=run_uuid,
                               user_uuid=self.data['inputs']['Scenario'].get('user_uuid'))

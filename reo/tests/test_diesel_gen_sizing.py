@@ -56,7 +56,7 @@ class GeneratorSizingTests(ResourceTestCaseMixin, TestCase):
         @param outage_end:
         @return:
         """
-        tech_to_load = list()
+        tech_to_load = []
         for tech in list_to_load:
             if tech is not None:
                 tech_to_load = [sum_t + t for sum_t, t in zip(tech_to_load, tech[outage_start:outage_end])]
@@ -84,25 +84,25 @@ class GeneratorSizingTests(ResourceTestCaseMixin, TestCase):
         d = ModelManager.make_response(run_uuid=run_uuid)
         c = nested_to_flat(d['outputs'])
 
-        d_expected = dict()
-        d_expected['lcc'] = 244743.0
-        d_expected['npv'] = -3959.0
-        d_expected['pv_kw'] = 100.0
-        d_expected['batt_kw'] = 0.0
-        d_expected['batt_kwh'] = 0.0
-        d_expected['gen_kw'] = 5.85713
-        d_expected['fuel_used_gal'] = 0.79
-        d_expected['avoided_outage_costs_us_dollars'] = 2982.63
-        d_expected['microgrid_upgrade_cost_us_dollars'] = 1054.2
-        d_expected['gen_total_variable_om_cost_us_dollars'] = 1.0
-        d_expected['existing_pv_om_cost_us_dollars'] = 11507.0
-        d_expected['net_capital_costs_plus_om'] = 15443.0
-
+        d_expected = {
+            'lcc': 244743.0,
+            'npv': -3959.0,
+            'pv_kw': 100.0,
+            'batt_kw': 0.0,
+            'batt_kwh': 0.0,
+            'gen_kw': 5.85713,
+            'fuel_used_gal': 0.79,
+            'avoided_outage_costs_us_dollars': 2982.63,
+            'microgrid_upgrade_cost_us_dollars': 1054.2,
+            'gen_total_variable_om_cost_us_dollars': 1.0,
+            'existing_pv_om_cost_us_dollars': 11507.0,
+            'net_capital_costs_plus_om': 15443.0,
+        }
         try:
             check_common_outputs(self, c, d_expected)
         except:
-            print("Run {} expected outputs may have changed.".format(run_uuid))
-            print("Error message: {}".format(d['messages']))
+            print(f"Run {run_uuid} expected outputs may have changed.")
+            print(f"Error message: {d['messages']}")
             raise
 
         critical_load = d['outputs']['Scenario']['Site']['LoadProfile']['critical_load_series_kw']

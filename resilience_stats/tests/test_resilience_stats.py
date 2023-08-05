@@ -44,7 +44,7 @@ class TestResilStats(ResourceTestCaseMixin, TestCase):
             test_path = os.path.join('resilience_stats', 'tests', path)
             results = json.loads(open(os.path.join(test_path, 'REopt_results.json')).read())
             pv_kw = results['PVNM']
-            pv_kw_ac_hourly = list()
+            pv_kw_ac_hourly = []
 
             with open(os.path.join(test_path, 'offline_pv_prod_factor.txt'), 'r') as f:
                 for line in f:
@@ -52,12 +52,12 @@ class TestResilStats(ResourceTestCaseMixin, TestCase):
 
             timesteps_per_hr = len(pv_kw_ac_hourly) / 8760
 
-            load = list()
+            load = []
             with open(os.path.join(test_path, 'Load.txt'), 'r') as f:
                 for line in f:
                     load.append(float(line.strip('\n')))
 
-            stored_energy = list()
+            stored_energy = []
             with open(os.path.join(test_path, 'StoredEnergy.txt'), 'r') as f:
                 for line in f:
                     stored_energy.append(float(line.strip('\n')) * timesteps_per_hr)

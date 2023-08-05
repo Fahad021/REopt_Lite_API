@@ -94,13 +94,7 @@ class PVWatts:
 
     @property
     def url(self):
-        url = self.url_base + "?api_key=" + self.key + "&azimuth=" + str(self.azimuth) + \
-              "&system_capacity=" + str(self.system_capacity) + "&losses=" + str(self.losses*100) + \
-              "&array_type=" + str(self.array_type) + "&module_type=" + str(self.module_type) + \
-              "&timeframe=" + self.timeframe +"&gcr=" + str(self.gcr) +  "&dc_ac_ratio=" + str(self.dc_ac_ratio) + \
-              "&inv_eff=" + str(self.inv_eff*100) + "&radius=" + str(int(self.radius)) + "&dataset=" + self.dataset + \
-              "&lat=" + str(self.latitude) + "&lon=" + str(self.longitude) + "&tilt=" + str(self.tilt)
-        return url
+        return f"{self.url_base}?api_key={self.key}&azimuth={str(self.azimuth)}&system_capacity={str(self.system_capacity)}&losses={str(self.losses * 100)}&array_type={str(self.array_type)}&module_type={str(self.module_type)}&timeframe={self.timeframe}&gcr={str(self.gcr)}&dc_ac_ratio={str(self.dc_ac_ratio)}&inv_eff={str(self.inv_eff * 100)}&radius={int(self.radius)}&dataset={self.dataset}&lat={str(self.latitude)}&lon={str(self.longitude)}&tilt={str(self.tilt)}"
 
     @property
     def data(self):
@@ -111,15 +105,15 @@ class PVWatts:
                 # check for international location
                 data = json.loads(resp.text)
                 intl_warning = "This location appears to be outside the US"
-                
+
                 if (intl_warning in s for s in data.get("warnings",[])):
                     self.dataset = "intl"
                     self.radius = self.radius * 2 # bump up search radius, since there aren't many sites
                     resp = requests.get(self.url, verify=self.verify)
 
             if not resp.ok:
-                log.error("PVWatts status code {}. {}".format(resp.status_code, resp.content))
-                raise Exception("PVWatts status code {}. {}".format(resp.status_code, resp.content))
+                log.error(f"PVWatts status code {resp.status_code}. {resp.content}")
+                raise Exception(f"PVWatts status code {resp.status_code}. {resp.content}")
 
             log.info("PVWatts API query successful.")
             data = json.loads(resp.text)
@@ -130,6 +124,8 @@ class PVWatts:
     @property
     def pv_prod_factor(self):
 
+        prod_factor = []
+
         if not self.offline:
 
             outputs = self.response['outputs']
@@ -139,32 +135,23 @@ class PVWatts:
                 ac_hourly = [0] * 8760
 
             dc_nameplate = self.system_capacity * 1000  # W
-            prod_factor = []
-
             # subhourly (i.e 15 minute data)
             if self.time_steps_per_hour >= 1:
                 timesteps = []
                 timesteps_base = range(0, 8760)
                 for ts_b in timesteps_base:
-                    for step in range(0, self.time_steps_per_hour):
-                       timesteps.append(ts_b)
-
-            # downscaled run (i.e 288 steps per year)
+                    timesteps.extend(ts_b for _ in range(0, self.time_steps_per_hour))
             else:
                 timesteps = range(0, 8760, int(1 / self.time_steps_per_hour))
 
-            for hour in timesteps:
-                # degradation (levelization factor) applied in mosel model
-                prod_factor.append(round(ac_hourly[hour]/ dc_nameplate, 4))
-
+            prod_factor.extend(
+                round(ac_hourly[hour] / dc_nameplate, 4) for hour in timesteps
+            )
         else:
-            prod_factor_original = list()
-            prod_factor = list()
+            prod_factor_original = []
             import os
             with open(os.path.join('reo', 'tests', 'offline_pv_prod_factor.txt'), 'r') as f:
-                for line in f:
-                    prod_factor_original.append(float(line.strip('\n')))
-
+                prod_factor_original.extend(float(line.strip('\n')) for line in f)
             # the stored values in offline_pv_prod_factor.txt are 8760 rows, thus modifying prod_factor list
             # to have 8760*4 values
 

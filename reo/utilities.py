@@ -68,11 +68,11 @@ def annuity(analysis_period, rate_escalation, rate_discount):
         for n = 1,..., analysis_period
     """
     x = (1 + rate_escalation) / (1 + rate_discount)
-    if x != 1:
-        pwf = round(x * (1 - x ** analysis_period) / (1 - x), 5)
-    else:
-        pwf = analysis_period
-    return pwf
+    return (
+        round(x * (1 - x**analysis_period) / (1 - x), 5)
+        if x != 1
+        else analysis_period
+    )
 
 
 def degradation_factor(analysis_period, rate_degradation):
@@ -80,7 +80,7 @@ def degradation_factor(analysis_period, rate_degradation):
         return 0
     factor = 1
     factors = [factor]
-    for yr in range(1, int(analysis_period)):
+    for _ in range(1, int(analysis_period)):
         factor *= (1 - rate_degradation)
         factors.append(factor)
     return sum(factors)/analysis_period
@@ -95,10 +95,12 @@ def annuity_degr(analysis_period, rate_escalation, rate_discount, rate_degradati
     :param rate_degradation: annual degradation
     :return: present worth factor with degradation
     '''
-    pwf = 0
-    for yr in range(1, int(analysis_period + 1)):
-        pwf += (1 + rate_escalation) ** yr / (1 + rate_discount) ** yr * (1 + rate_degradation) ** (yr - 1)
-    return pwf
+    return sum(
+        (1 + rate_escalation) ** yr
+        / (1 + rate_discount) ** yr
+        * (1 + rate_degradation) ** (yr - 1)
+        for yr in range(1, int(analysis_period + 1))
+    )
 
 
 def insert_u_bp(xp_array_incent, yp_array_incent, region, u_xbp, u_ybp, p, u_cap):
@@ -181,9 +183,7 @@ def setup_capital_cost_incentive(itc_basis, replacement_cost, replacement_year,
     cap_cost_slope = itc_basis - tax_savings + replacement
 
     # Sanity check
-    if cap_cost_slope < 0:
-        cap_cost_slope = 0
-
+    cap_cost_slope = max(cap_cost_slope, 0)
     return round(cap_cost_slope, 4)
 
 
@@ -207,23 +207,17 @@ def check_common_outputs(Test, d_calculated, d_expected):
                 tolerance = 2 * Test.REopt_tol
 
             if key in c and key in e:
-                if (not isinstance(e[key], list) and isinstance(e[key], list)) or \
-                        (isinstance(e[key], list) and not isinstance(e[key], list)):
-                    Test.fail('Key: {0} expected type: {1} actual type {2}'.format(key, str(type(e[key])), str(type(c[key]))))
-                elif e[key] == 0:
+                if e[key] == 0:
                     Test.assertEqual(c[key], e[key], 'Key: {0} expected: {1} actual {2}'.format(key, str(e[key]), str(c[key])))
-                else:
-                    if isinstance(e[key], float) or isinstance(e[key], int):
-                        if key in ['batt_kw', 'batt_kwh']:
-                            # variable rounding depends on scale of sizes
-                            Test.assertAlmostEqual(c[key], e[key], -(int(log10(c[key]))))
-                        else:
-                            Test.assertTrue(abs((float(c[key]) - e[key]) / e[key]) < tolerance,
-                                            'Key: {0} expected: {1} actual {2}'.format(key, str(e[key]), str(c[key])))
+                elif isinstance(e[key], (float, int)):
+                    if key in ['batt_kw', 'batt_kwh']:
+                        # variable rounding depends on scale of sizes
+                        Test.assertAlmostEqual(c[key], e[key], -(int(log10(c[key]))))
                     else:
-                        pass
+                        Test.assertTrue(abs((float(c[key]) - e[key]) / e[key]) < tolerance,
+                                        'Key: {0} expected: {1} actual {2}'.format(key, str(e[key]), str(c[key])))
             else:
-                print("Warning: Expected value for {} not in calculated dictionary.".format(key))
+                print(f"Warning: Expected value for {key} not in calculated dictionary.")
 
         if 'lcc_bau' in c and c['lcc_bau'] > 0:
         # Total LCC BAU is sum of utility costs
@@ -236,7 +230,7 @@ def check_common_outputs(Test, d_calculated, d_expected):
                             / float(c['lcc_bau'])) < Test.REopt_tol,
                             "LCC_BAU doesn't add up to sum of individual costs")
     except Exception as e:
-        print("check_common_outputs failed: {}".format(e.args[0]))
+        print(f"check_common_outputs failed: {e.args[0]}")
         em = ErrorModel.objects.filter(run_uuid=c["run_uuid"]).first()
         if em is not None:
             raise Exception("""ErrorModel values:

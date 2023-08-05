@@ -43,8 +43,7 @@ class InputValidatorTests(TestCase):
 
     @staticmethod
     def get_validator(post):
-        validator = ValidateNestedInput(post)
-        return validator
+        return ValidateNestedInput(post)
 
     def test_add_blended_to_urdb(self):
         """
@@ -158,7 +157,12 @@ class InputValidatorTests(TestCase):
                 up_or_down = "Upsampled"
                 if resolution > time_steps_per_hour:
                     up_or_down = "Downsampled"
-                self.assertTrue(all(
-                    test_str in validator.warnings['Following inputs were resampled:']['ElectricTariff']
-                    for test_str in ["{} {}".format(up_or_down, rate) for rate in rates]
-                ))
+                self.assertTrue(
+                    all(
+                        test_str
+                        in validator.warnings['Following inputs were resampled:'][
+                            'ElectricTariff'
+                        ]
+                        for test_str in [f"{up_or_down} {rate}" for rate in rates]
+                    )
+                )

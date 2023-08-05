@@ -82,14 +82,11 @@ class Job(ModelResource):
         object_class = None
         
     def detail_uri_kwargs(self, bundle_or_obj):
-        kwargs = {}
-
-        if isinstance(bundle_or_obj, Bundle):
-            kwargs['pk'] = bundle_or_obj.obj.id
-        else:
-            kwargs['pk'] = bundle_or_obj['id']
-
-        return kwargs
+        return {
+            'pk': bundle_or_obj.obj.id
+            if isinstance(bundle_or_obj, Bundle)
+            else bundle_or_obj['id']
+        }
 
     def get_object_list(self, request):
         return [request]
@@ -99,13 +96,21 @@ class Job(ModelResource):
 
     def obj_create(self, bundle, **kwargs):
         run_uuid = str(uuid.uuid4())
-        data = dict()
-        data["outputs"] = {"Scenario": {'run_uuid': run_uuid, 'api_version': api_version,
-                                        'Profile': {'pre_setup_scenario_seconds': 0, 'setup_scenario_seconds': 0,
-                                                        'reopt_seconds': 0, 'reopt_bau_seconds': 0,
-                                                        'parse_run_outputs_seconds': 0},                                            
-                                       }
-                           }
+        data = {
+            "outputs": {
+                "Scenario": {
+                    'run_uuid': run_uuid,
+                    'api_version': api_version,
+                    'Profile': {
+                        'pre_setup_scenario_seconds': 0,
+                        'setup_scenario_seconds': 0,
+                        'reopt_seconds': 0,
+                        'reopt_bau_seconds': 0,
+                        'parse_run_outputs_seconds': 0,
+                    },
+                }
+            }
+        }
         # Setup and start profile
         profiler = Profiler()
         uuidFilter = UUIDFilter(run_uuid)
@@ -122,7 +127,7 @@ class Job(ModelResource):
             data['inputs'] = bundle.data
             data['messages'] = {}
             data['messages']['error'] = err.message  # "Unexpected Error."
-            log.error("Internal Server error: " + err.message)
+            log.error(f"Internal Server error: {err.message}")
             raise ImmediateHttpResponse(HttpResponse(json.dumps(data),
                                                      content_type='application/json',
                                                      status=500))  # internal server error
@@ -133,7 +138,7 @@ class Job(ModelResource):
             log.debug("input_validator not valid")
             log.debug(json.dumps(data))
             set_status(data, 'Error. No optimization task has been created. See messages for more information. ' \
-                               'Note that inputs have default values filled in.')
+                                   'Note that inputs have default values filled in.')
             if saveToDb:
                 badpost = BadPost(run_uuid=run_uuid, post=json.dumps(bundle.data), errors=str(data['messages']))
                 badpost.save()
@@ -148,7 +153,7 @@ class Job(ModelResource):
         if saveToDb:
             set_status(data, 'Optimizing...')
             data['outputs']['Scenario']['Profile']['pre_setup_scenario_seconds'] = profiler.getDuration()
-            if bundle.request.META.get('HTTP_X_API_USER_ID') or False:
+            if bundle.request.META.get('HTTP_X_API_USER_ID'):
                 if bundle.request.META.get('HTTP_X_API_USER_ID') or '' == '6f09c972-8414-469b-b3e8-a78398874103':
                     data['outputs']['Scenario']['job_type'] = 'REopt Lite Web Tool'
                 else:
@@ -161,14 +166,14 @@ class Job(ModelResource):
             try:
                 model_manager.create_and_save(data)
             except Exception as e:
-                log.error("Could not create and save run_uuid: {}\n Data: {}".format(run_uuid,data))
+                log.error(f"Could not create and save run_uuid: {run_uuid}\n Data: {data}")
                 exc_type, exc_value, exc_traceback = sys.exc_info()
                 err = UnexpectedError(exc_type, exc_value.args[0], traceback.format_tb(exc_traceback), task='ModelManager.create_and_save',
                                       run_uuid=run_uuid)
                 err.save_to_db()
                 set_status(data, "Internal Server Error during saving of inputs. Please see messages.")
                 data['messages']['error'] = err.message  # "Unexpected Error."
-                log.error("Internal Server error: " + err.message)
+                log.error(f"Internal Server error: {err.message}")
                 raise ImmediateHttpResponse(HttpResponse(json.dumps(data),
                                                          content_type='application/json',
                                                          status=500))  # internal server error
@@ -182,9 +187,7 @@ class Job(ModelResource):
         try:
             chain(setup | group(rjm, rjm_bau) | call_back)()
         except Exception as e:
-            if isinstance(e, REoptError):
-                pass  # handled in each task
-            else:  # for every other kind of exception
+            if not isinstance(e, REoptError):
                 exc_type, exc_value, exc_traceback = sys.exc_info()
                 err = UnexpectedError(exc_type, exc_value.args[0], traceback.format_tb(exc_traceback), task='api.py', run_uuid=run_uuid)
                 err.save_to_db()
@@ -192,7 +195,7 @@ class Job(ModelResource):
                 if 'messages' not in data.keys():
                     data['messages'] = {}
                 data['messages']['error'] = err.message
-                log.error("Internal Server error: " + err.message)
+                log.error(f"Internal Server error: {err.message}")
                 raise ImmediateHttpResponse(HttpResponse(json.dumps(data),
                                                          content_type='application/json',
                                                          status=500))  # internal server error

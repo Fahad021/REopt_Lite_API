@@ -48,7 +48,7 @@ class REoptArgs:
         It is not only used for demand rates, but also for summing the energy use in each month for rates with energy
         tiers.
         """
-        self.demand_ratchets_monthly = [[] for i in range(12)]  # initialize empty lists to fill with timesteps
+        self.demand_ratchets_monthly = [[] for _ in range(12)]
         for month in range(12):
             for hour in range(24 * cum_days_in_yr[month]+1, 24 * cum_days_in_yr[month+1]+1):
                 self.demand_ratchets_monthly[month].append(hour)
@@ -133,7 +133,7 @@ class RateData:
             if k in rate:
                 setattr(self, k, rate.get(k))
             else:
-                setattr(self, k, list())
+                setattr(self, k, [])
 
 
 class UrdbParse:
@@ -174,7 +174,9 @@ class UrdbParse:
             self.generator_fuel_intercept = 0.0
             self.generator_fuel_avail = 0.0
 
-        log.info("URDB parse with year: " + str(self.year) + " net_metering: " + str(self.net_metering))
+        log.info(
+            f"URDB parse with year: {str(self.year)} net_metering: {str(self.net_metering)}"
+        )
 
         self.energy_rates_summary = []
         self.demand_rates_summary = []
@@ -190,13 +192,12 @@ class UrdbParse:
         if calendar.isleap(self.year):
             self.is_leap_year = True
 
-        self.last_hour_in_month = []
-        for month in range(0, 12):
-            days_elapsed = sum(self.days_in_month[0:month + 1])
-            self.last_hour_in_month.append(days_elapsed * 24)
+        self.last_hour_in_month = [
+            sum(self.days_in_month[: month + 1]) * 24 for month in range(0, 12)
+        ]
 
     def parse_rate(self, utility, rate):
-        log.info("Processing: " + utility + ", " + rate)
+        log.info(f"Processing: {utility}, {rate}")
 
         current_rate = RateData(self.urdb_rate)
         self.prepare_summary(current_rate)
@@ -204,19 +205,19 @@ class UrdbParse:
         self.prepare_energy_costs(current_rate)
 
         self.reopt_args.energy_rates, \
-        self.reopt_args.energy_avail,  \
-        self.reopt_args.export_rates, \
-        self.reopt_args.energy_burn_rate, \
-        self.reopt_args.energy_burn_intercept = self.prepare_techs_and_loads(self.techs)
+            self.reopt_args.energy_avail,  \
+            self.reopt_args.export_rates, \
+            self.reopt_args.energy_burn_rate, \
+            self.reopt_args.energy_burn_intercept = self.prepare_techs_and_loads(self.techs)
 
         self.reopt_args.energy_rates_bau, \
-        self.reopt_args.energy_avail_bau, \
-        self.reopt_args.export_rates_bau, \
-        self.reopt_args.energy_burn_rate_bau, \
-        self.reopt_args.energy_burn_intercept_bau = self.prepare_techs_and_loads(self.bau_techs)
+            self.reopt_args.energy_avail_bau, \
+            self.reopt_args.export_rates_bau, \
+            self.reopt_args.energy_burn_rate_bau, \
+            self.reopt_args.energy_burn_intercept_bau = self.prepare_techs_and_loads(self.bau_techs)
 
         self.prepare_fixed_charges(current_rate)
-        
+
         return self.reopt_args
 
     def prepare_summary(self, current_rate):
@@ -265,11 +266,9 @@ class UrdbParse:
         if n_periods == 0:
             return
 
-        # parse energy tiers
-        energy_tiers = []
-        for energy_rate in current_rate.energyratestructure:
-            energy_tiers.append(len(energy_rate))
-
+        energy_tiers = [
+            len(energy_rate) for energy_rate in current_rate.energyratestructure
+        ]
         period_with_max_tiers = energy_tiers.index(max(energy_tiers))
         energy_tier_set = set(energy_tiers)
 
@@ -313,20 +312,17 @@ class UrdbParse:
         if average_rates:
             rate_average = float(sum(rates)) / max(len(rates), 1)
             self.reopt_args.energy_tiers_num = 1
-            self.reopt_args.energy_max_in_tiers = []
-            self.reopt_args.energy_max_in_tiers.append(self.big_number)
-            log.warning("Cannot handle max usage units of " + energy_tier_unit + "! Using average rate")
+            self.reopt_args.energy_max_in_tiers = [self.big_number]
+            log.warning(
+                f"Cannot handle max usage units of {energy_tier_unit}! Using average rate"
+            )
 
         for tier in range(0, self.reopt_args.energy_tiers_num):
             hour_of_year = 1
             for month in range(0, 12):
                 for day in range(0, self.days_in_month[month]):
 
-                    if calendar.weekday(self.year, month + 1, day + 1) < 5:
-                        is_weekday = True
-                    else:
-                        is_weekday = False
-
+                    is_weekday = calendar.weekday(self.year, month + 1, day + 1) < 5
                     for hour in range(0, 24):
                         if is_weekday:
                             period = current_rate.energyweekdayschedule[month][hour]
@@ -350,7 +346,7 @@ class UrdbParse:
 
                         adj = float(current_rate.energyratestructure[period][tier_use].get('adj') or 0)
 
-                        for step in range(0, self.time_steps_per_hour):
+                        for _ in range(0, self.time_steps_per_hour):
                             self.energy_costs.append(rate + adj)
 
                         hour_of_year += 1
@@ -361,7 +357,7 @@ class UrdbParse:
         # len(self.energy_costs) = self.ts_per_year * self.reopt_args.energy_tiers_num
 
         start_index = len(energy_costs) - self.ts_per_year
-        self.energy_rates_summary = energy_costs[start_index:len(energy_costs)]  # MOVE ELSEWHERE
+        self.energy_rates_summary = energy_costs[start_index:]
 
         """
         ExportRate should be lowest energy cost for tiered rates. Otherwise, ExportRate can be > FuelRate, which
@@ -369,11 +365,10 @@ class UrdbParse:
         """
         tier_with_lowest_energy_cost = 0
         if self.reopt_args.energy_tiers_num > 1:
-            annual_energy_charge_sums = []
-            for i in range(0, len(energy_costs), self.ts_per_year):
-                annual_energy_charge_sums.append(
-                    sum(energy_costs[i:i+self.ts_per_year])
-                )
+            annual_energy_charge_sums = [
+                sum(energy_costs[i : i + self.ts_per_year])
+                for i in range(0, len(energy_costs), self.ts_per_year)
+            ]
             tier_with_lowest_energy_cost = annual_energy_charge_sums.index(min(annual_energy_charge_sums))
 
         negative_energy_costs = [cost * -0.999 for cost in
@@ -417,24 +412,27 @@ class UrdbParse:
             for load in self.loads:
                 if tech.lower() == 'util':
                     export_rates = operator.add(export_rates, self.zero_array)
-                
+
                 elif not tech.lower().endswith('nm'):
                     # techs that end with 'nm' are for ABOVE net_metering_limit; yeah, I know...
-                    if load == 'wholesale':
-                        if self.net_metering:
-                            export_rates = operator.add(export_rates, negative_energy_costs)
-                        else:
-                            export_rates = operator.add(export_rates, negative_wholesale_rate_costs)
-                    elif load == 'export':
+                    if load == 'export':
                         export_rates = operator.add(export_rates, negative_excess_rate_costs)
+                    elif load == 'wholesale':
+                        export_rates = (
+                            operator.add(export_rates, negative_energy_costs)
+                            if self.net_metering
+                            else operator.add(
+                                export_rates, negative_wholesale_rate_costs
+                            )
+                        )
                     else:
                         export_rates = operator.add(export_rates, self.zero_array)
 
                 elif tech.lower().endswith('nm'):
-                    if load == 'wholesale':
-                        export_rates = operator.add(export_rates, negative_wholesale_rate_costs)
-                    elif load == 'export':
+                    if load == 'export':
                         export_rates = operator.add(export_rates, negative_excess_rate_costs)
+                    elif load == 'wholesale':
+                        export_rates = operator.add(export_rates, negative_wholesale_rate_costs)
                     else:
                         export_rates = operator.add(export_rates, self.zero_array)
 
@@ -442,7 +440,7 @@ class UrdbParse:
         energy_burn_rate = []
         energy_burn_intercept = []
         for tech in techs:
-            for load in self.loads:
+            for _ in self.loads:
                 for _ in range(self.reopt_args.energy_tiers_num):
                     if tech.lower() == 'util':
                         energy_burn_rate.append(1.0)
@@ -478,7 +476,7 @@ class UrdbParse:
 
     def prepare_demand_ratchets(self, current_rate):
 
-        demand_lookback_months = list()
+        demand_lookback_months = []
         demand_ratchet_percentages = 12 * [0]
         if len(current_rate.demandratchetpercentage) == 12:
             demand_ratchet_percentages = current_rate.demandratchetpercentage
@@ -503,9 +501,7 @@ class UrdbParse:
             demand_rate_structure = current_rate.demandratestructure
             self.reopt_args.demand_max_in_tiers = []
 
-        demand_tiers = []
-        for demand_rate in demand_rate_structure:
-            demand_tiers.append(len(demand_rate))
+        demand_tiers = [len(demand_rate) for demand_rate in demand_rate_structure]
         demand_tier_set = set(demand_tiers)
         period_with_max_tiers = demand_tiers.index(max(demand_tiers)) #NOTE: this takes the first period if multiple periods have the same number of (max) tiers
         n_tiers = max(demand_tier_set)
@@ -520,7 +516,7 @@ class UrdbParse:
                 n_tiers_in_period = len(demand_rate)
                 if n_tiers_in_period != n_tiers:
                     last_tier = demand_rate[n_tiers_in_period - 1]
-                    for i in range(0, n_tiers - n_tiers_in_period):
+                    for _ in range(0, n_tiers - n_tiers_in_period):
                         demand_rate_new.append(last_tier)
                 demand_rate_structure[r] = demand_rate_new
 
@@ -625,8 +621,7 @@ class UrdbParse:
 
     def get_hours_in_month(self, month):
 
-        hours = []
-        hours.append(0)
+        hours = [0]
         for m in range(12):
             hours_previous = hours[m]
             days_in_month = calendar.monthrange(self.year, m + 1)[1]

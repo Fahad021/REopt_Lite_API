@@ -48,35 +48,39 @@ def add_user_uuid(request):
     :return: None
     """
     try:
-        if request.method == 'POST':
-            post = request.body
-            # Try to import JSON
-            try:
-                data = json.loads(post)
-                try:
-                    user_uuid = str(data['user_uuid'])
-                    run_uuid = str(data['run_uuid'])
-                    uuid.UUID(user_uuid)  # raises ValueError if not valid uuid
-                    uuid.UUID(run_uuid)  # raises ValueError if not valid uuid
-                    try:
-                        scenario = ScenarioModel.objects.filter(run_uuid=run_uuid).first()
-                        print (scenario.user_uuid)
-                        if scenario.user_uuid is None:
-                            ModelManager.add_user_uuid(user_uuid, run_uuid)
-                            response = JsonResponse(
-                                {"Success": "user_uuid for run_uuid {} has been set to {}".format(run_uuid, user_uuid)})
-                            return response
-                        else:
-                            return JsonResponse({"Error": "a user_uuid already exists for run_uuid {}".format(run_uuid)})
-                    except:
-                        return JsonResponse({"Error": "run_uuid does not exist"})
-                except:
-                    return JsonResponse({"Error": "Invalid inputs: must provide user_uuid and run_uuid key value pairs as valid UUIDs"})
-            except:
-                return JsonResponse({"Error": "Invalid JSON"})
-        else:
+        if request.method != 'POST':
             return JsonResponse({"Error": "Must POST a JSON with user_uuid and run_uuid key value pairs"})
 
+        post = request.body
+            # Try to import JSON
+        try:
+            data = json.loads(post)
+            try:
+                user_uuid = str(data['user_uuid'])
+                run_uuid = str(data['run_uuid'])
+                uuid.UUID(user_uuid)  # raises ValueError if not valid uuid
+                uuid.UUID(run_uuid)  # raises ValueError if not valid uuid
+                try:
+                    scenario = ScenarioModel.objects.filter(run_uuid=run_uuid).first()
+                    print (scenario.user_uuid)
+                    if scenario.user_uuid is not None:
+                        return JsonResponse(
+                            {
+                                "Error": f"a user_uuid already exists for run_uuid {run_uuid}"
+                            }
+                        )
+                    ModelManager.add_user_uuid(user_uuid, run_uuid)
+                    return JsonResponse(
+                        {
+                            "Success": f"user_uuid for run_uuid {run_uuid} has been set to {user_uuid}"
+                        }
+                    )
+                except:
+                    return JsonResponse({"Error": "run_uuid does not exist"})
+            except:
+                return JsonResponse({"Error": "Invalid inputs: must provide user_uuid and run_uuid key value pairs as valid UUIDs"})
+        except:
+            return JsonResponse({"Error": "Invalid JSON"})
     except Exception as e:
         exc_type, exc_value, exc_traceback = sys.exc_info()
         err = UnexpectedError(exc_type, exc_value, exc_traceback, task='add_user_uuid')
@@ -98,28 +102,32 @@ def unlink(request, user_uuid, run_uuid):
 
         except ValueError as e:
             if e.args[0] == "badly formed hexadecimal UUID string":
-                return JsonResponse({"Error": "{} {}".format(name, e.args[0]) }, status=400)
-            else:
-                exc_type, exc_value, exc_traceback = sys.exc_info()
-                if name == 'user_uuid':
-                    err = UnexpectedError(exc_type, exc_value, exc_traceback, task='unlink', user_uuid=check_id)
-                if name == 'run_uuid':
-                    err = UnexpectedError(exc_type, exc_value, exc_traceback, task='unlink', run_uuid=check_id)
-                err.save_to_db()
-                return JsonResponse({"Error": str(err.message)}, status=400)
+                return JsonResponse({"Error": f"{name} {e.args[0]}"}, status=400)
+            exc_type, exc_value, exc_traceback = sys.exc_info()
+            if name == 'user_uuid':
+                err = UnexpectedError(exc_type, exc_value, exc_traceback, task='unlink', user_uuid=check_id)
+            if name == 'run_uuid':
+                err = UnexpectedError(exc_type, exc_value, exc_traceback, task='unlink', run_uuid=check_id)
+            err.save_to_db()
+            return JsonResponse({"Error": str(err.message)}, status=400)
 
     try:
         
         if not ScenarioModel.objects.filter(user_uuid=user_uuid).exists():
-            return JsonResponse({"Error":"User {} does not exist".format(user_uuid)}, status=400)
+            return JsonResponse({"Error": f"User {user_uuid} does not exist"}, status=400)
 
         if not ScenarioModel.objects.filter(run_uuid=run_uuid).exists():
-            return JsonResponse({"Error":"Run {} does not exist".format(run_uuid)}, status=400)
+            return JsonResponse({"Error": f"Run {run_uuid} does not exist"}, status=400)
 
         runs = ScenarioModel.objects.filter(run_uuid=run_uuid)
         if runs.exists():
             if runs[0].user_uuid != user_uuid:
-                return JsonResponse({"Error":"Run {} is not associated with user {}".format(run_uuid, user_uuid)}, status=400)
+                return JsonResponse(
+                    {
+                        "Error": f"Run {run_uuid} is not associated with user {user_uuid}"
+                    },
+                    status=400,
+                )
 
         if not UserUnlinkedRuns.objects.filter(run_uuid=run_uuid).exists():
             UserUnlinkedRuns.create(**content)
@@ -168,11 +176,10 @@ def summary(request, user_uuid):
     except ValueError as e:
         if e.args[0] == "badly formed hexadecimal UUID string":
             return JsonResponse({"Error": str(e.message)}, status=404)
-        else:
-            exc_type, exc_value, exc_traceback = sys.exc_info()
-            err = UnexpectedError(exc_type, exc_value, exc_traceback, task='summary', user_uuid=user_uuid)
-            err.save_to_db()
-            return JsonResponse({"Error": str(err.message)}, status=404)
+        exc_type, exc_value, exc_traceback = sys.exc_info()
+        err = UnexpectedError(exc_type, exc_value, exc_traceback, task='summary', user_uuid=user_uuid)
+        err.save_to_db()
+        return JsonResponse({"Error": str(err.message)}, status=404)
 
     try:
         
@@ -182,10 +189,10 @@ def summary(request, user_uuid):
 
         json_response = {"user_uuid": user_uuid, "scenarios": []}
 
-        if len(scenarios) == 0:
+        if not scenarios:
             response = JsonResponse({"Error": "No scenarios found for user '{}'".format(user_uuid)}, content_type='application/json', status=404)
             return response
-        
+
         scenario_run_uuids =  [s.run_uuid for s in scenarios]
 
         #saving time by only calling each table once
@@ -204,17 +211,15 @@ def summary(request, user_uuid):
                 if str(data.get('run_uuid')) == str(run_uuid):
                     return data
             result = [s for s in data if str(s.get('run_uuid')) == str(run_uuid)]
-            if len(result) > 0:
-                return result
-            return [{}]
+            return result if result else [{}]
 
         for scenario in scenarios:
             results = {}
-            
+
             message_set = get_scenario_data(messages, scenario.run_uuid)
-            if not type(message_set) == list:
+            if type(message_set) != list:
                 message_set = [message_set]
-            
+
             site = get_scenario_data(sites, scenario.run_uuid)[0]
             load = get_scenario_data(loads, scenario.run_uuid)[0]
             batt = get_scenario_data(batts, scenario.run_uuid)[0]
@@ -223,13 +228,13 @@ def summary(request, user_uuid):
             gen = get_scenario_data(gens, scenario.run_uuid)[0]
             financial = get_scenario_data(financials, scenario.run_uuid)[0]
             tariff = get_scenario_data(tariffs, scenario.run_uuid)[0]
-            
+
             # Messages
             results['messages'] = {}
             for message in message_set:
                 if len(message.keys()) > 0:
                     results['messages'][message.get('message_type') or "type"] = message.get('message') or ""
-            
+
             # Run ID
             results['run_uuid'] = str(scenario.run_uuid)
 
@@ -245,11 +250,7 @@ def summary(request, user_uuid):
                 results['description'] = scenario.description
 
                 # Focus
-                if load['outage_start_hour']:
-                    results['focus'] = "Resilience"
-                else:
-                    results['focus'] = "Financial"
-
+                results['focus'] = "Resilience" if load['outage_start_hour'] else "Financial"
                 # Address
                 results['address'] = site.get('address')
 
@@ -279,7 +280,7 @@ def summary(request, user_uuid):
                     tariff.get('year_one_min_charge_adder_us_dollars') or 0,
                     tariff.get('year_one_bill_us_dollars') or 0
                     ]))
-                
+
                 year_one_costs_bau = sum(filter(None, [
                     tariff.get('year_one_energy_cost_bau_us_dollars') or 0,
                     tariff.get('year_one_demand_cost_bau_us_dollars') or 0,
@@ -287,15 +288,12 @@ def summary(request, user_uuid):
                     tariff.get('year_one_min_charge_adder_bau_us_dollars') or 0,
                     tariff.get('year_one_bill_bau_us_dollars') or 0
                     ]))
-                
+
                 results['year_one_savings_us_dollars'] = year_one_costs_bau - year_one_costs
 
                 # PV Size
                 if pv is not None:
-                    if pv['max_kw'] > 0:
-                        results['pv_kw'] = pv.get('size_kw')
-                    else:
-                        results['pv_kw'] = 'not evaluated'
+                    results['pv_kw'] = pv.get('size_kw') if pv['max_kw'] > 0 else 'not evaluated'
                 else:
                     results['pv_kw'] = 'not evaluated'
 

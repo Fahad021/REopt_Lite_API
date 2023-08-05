@@ -64,16 +64,16 @@ def proforma(request, run_uuid):
         pf.save()
 
         wrapper = FileWrapper(open(pf.output_file, "rb"))
- 
+
         response = HttpResponse(wrapper, content_type='application/vnd.ms-excel.sheet.macroEnabled.12')
         response['Content-Length'] = os.path.getsize(pf.output_file)
-        response['Content-Disposition'] = 'attachment; filename=%s' % (pf.output_file_name)
+        response['Content-Disposition'] = f'attachment; filename={pf.output_file_name}'
         return response
 
     except Exception as e:
 
         if type(e).__name__ == 'DoesNotExist':
-            msg = "Scenario {} does not exist.".format(run_uuid)
+            msg = f"Scenario {run_uuid} does not exist."
             return HttpResponse(msg, status=404)
         else:
             exc_type, exc_value, exc_traceback = sys.exc_info()

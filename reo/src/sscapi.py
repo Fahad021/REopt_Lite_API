@@ -43,16 +43,11 @@ class PySSC:
 
     def __init__(self):
 
-        if sys.platform == 'win32' or sys.platform == 'cygwin':
-            if 8 * struct.calcsize("P") == 64:
-                self.pdll = CDLL("ssc.dll")
-            else:
-                self.pdll = CDLL("ssc.dll")
+        if sys.platform in ['win32', 'cygwin']:
+            self.pdll = CDLL("ssc.dll") if struct.calcsize("P") == 8 else CDLL("ssc.dll")
         elif sys.platform == 'darwin':
             self.pdll = CDLL("ssc.dylib")
-        elif sys.platform == 'linux2':
-            self.pdll = CDLL('ssc.so')  # instead of relative path, require user to have on LD_LIBRARY_PATH
-        elif sys.platform == 'linux':
+        elif sys.platform in ['linux2', 'linux']:
             self.pdll = CDLL('ssc.so')  # instead of relative path, require user to have on LD_LIBRARY_PATH
         else:
             print("Platform not supported ", sys.platform)
@@ -137,8 +132,7 @@ class PySSC:
         count = c_int()
         self.pdll.ssc_data_get_array.restype = POINTER(c_number)
         parr = self.pdll.ssc_data_get_array(c_void_p(p_data), c_char_p(name.encode('utf-8')), byref(count))
-        arr = parr[0:count.value]  # extract all at once
-        return arr
+        return parr[:count.value]
 
     def data_get_matrix(self, p_data, name):
         nrows = c_int()
@@ -147,9 +141,9 @@ class PySSC:
         parr = self.pdll.ssc_data_get_matrix(c_void_p(p_data), c_char_p(name.encode('utf-8')), byref(nrows), byref(ncols))
         idx = 0
         mat = []
-        for r in range(nrows.value):
+        for _ in range(nrows.value):
             row = []
-            for c in range(ncols.value):
+            for _ in range(ncols.value):
                 row.append(float(parr[idx]))
                 idx = idx + 1
             mat.append(row)
@@ -220,7 +214,6 @@ class PySSC:
     def module_exec(self, p_mod, p_data):
         self.pdll.ssc_module_exec.restype = c_int
         return self.pdll.ssc_module_exec(c_void_p(p_mod), c_void_p(p_data))
-        ssc_module_exec_simple_nothread
 
     def module_exec_simple_no_thread(self, modname, data):
         self.pdll.ssc_module_exec_simple_nothread.restype = c_char_p;

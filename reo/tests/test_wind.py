@@ -116,12 +116,6 @@ class WindTests(ResourceTestCaseMixin, TestCase):
                 "blended_monthly_rates_us_dollars_per_kwh": [0.2, 0.2, 0.2, 0.2, 0.2, 0.2, 0.2, 0.2, 0.2, 0.2, 0.2, 0.2]
             }
         }}}
-        d_expected = dict()
-        d_expected['lcc'] = 8551172
-        d_expected['npv'] = 16159608
-        d_expected['wind_kw'] = 3735
-        d_expected['average_annual_energy_exported_wind'] = 5844282
-        d_expected['net_capital_costs_plus_om'] = 8537480
         resp = self.get_response(data=wind_post)
         self.assertHttpCreated(resp)
         r = json.loads(resp.content)
@@ -133,11 +127,18 @@ class WindTests(ResourceTestCaseMixin, TestCase):
             print("Wind Dataset Timed Out")
         else:
             c = nested_to_flat(d['outputs'])
+            d_expected = {
+                'lcc': 8551172,
+                'npv': 16159608,
+                'wind_kw': 3735,
+                'average_annual_energy_exported_wind': 5844282,
+                'net_capital_costs_plus_om': 8537480,
+            }
             try:
                 check_common_outputs(self, c, d_expected)
             except:
-                print("Run {} expected outputs may have changed.".format(run_uuid))
-                print("Error message: {}".format(d['messages']))
+                print(f"Run {run_uuid} expected outputs may have changed.")
+                print(f"Error message: {d['messages']}")
                 raise
 
     def test_wind_sam_sdk(self):
@@ -155,13 +156,14 @@ class WindTests(ResourceTestCaseMixin, TestCase):
         # By default, the weather data available for download as a .srw file through WindTookit website only gives 100 m
         # hub height, which is what was used for SAM comparison. SAM won't let you simulate a hub height that differs
         # from the resource by more than 35m, so we'll use 80m for validation
-        kwargs = dict()
-        kwargs['hub_height_meters'] = 80
-        kwargs['longitude'] = -105.2348
-        kwargs['latitude'] = 39.91065
-        kwargs['size_class'] = 'medium'
-        kwargs['path_inputs'] = path_inputs
-        kwargs['temperature_celsius'] = df["temperature"].tolist()
+        kwargs = {
+            'hub_height_meters': 80,
+            'longitude': -105.2348,
+            'latitude': 39.91065,
+            'size_class': 'medium',
+            'path_inputs': path_inputs,
+            'temperature_celsius': df["temperature"].tolist(),
+        }
         kwargs['pressure_atmospheres'] = df["pressure_100m"].tolist()
         kwargs['wind_meters_per_sec'] = df["windspeed"].tolist()
         kwargs['wind_direction_degrees'] = df["winddirection"].tolist()
@@ -174,14 +176,16 @@ class WindTests(ResourceTestCaseMixin, TestCase):
         expected_prod_factor = [round(x, 2) for x in expected_prod_factor]
         self.assertListEqual(prod_factor, expected_prod_factor)
 
-        # Second test passing in resource file
-        kwargs2 = dict()
-        kwargs2['hub_height_meters'] = 50
         kwargs['longitude'] = -105.2348
         kwargs['latitude'] = 39.91065
         kwargs['size_class'] = 'medium'
-        kwargs2['file_resource_full'] = os.path.join(path_inputs, "39.91065_-105.2348_windtoolkit_2012_60min_40m_60m.srw")
-
+        kwargs2 = {
+            'hub_height_meters': 50,
+            'file_resource_full': os.path.join(
+                path_inputs,
+                "39.91065_-105.2348_windtoolkit_2012_60min_40m_60m.srw",
+            ),
+        }
         sam_wind2 = WindSAMSDK(**kwargs2)
         prod_factor2 = sam_wind2.wind_prod_factor()
         self.assertEqual(len(prod_factor2), 8760)

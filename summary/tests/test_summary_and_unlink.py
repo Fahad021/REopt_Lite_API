@@ -64,16 +64,22 @@ class SummaryResourceTest(ResourceTestCaseMixin, TestCase):
 
     def unlink_messages(self):
 
-      bad_uuid = str(uuid.uuid4())
-      unlink_response = self.get_unlink(bad_uuid, self.test_run_uuid)
-      self.assertTrue("User {} does not exist".format(bad_uuid) in str(unlink_response.content))
+        bad_uuid = str(uuid.uuid4())
+        unlink_response = self.get_unlink(bad_uuid, self.test_run_uuid)
+        self.assertTrue(
+            f"User {bad_uuid} does not exist" in str(unlink_response.content)
+        )
 
-      unlink_response = self.get_unlink(self.test_user_uuid, bad_uuid)
-      self.assertTrue("Run {} does not exist".format(bad_uuid) in str(unlink_response.content))
+        unlink_response = self.get_unlink(self.test_user_uuid, bad_uuid)
+        self.assertTrue(
+            f"Run {bad_uuid} does not exist" in str(unlink_response.content)
+        )
 
-      test_alt_run_uuid = self.send_valid_nested_post(self.test_alt_user_uuid)
-      unlink_response = self.get_unlink(self.test_user_uuid, test_alt_run_uuid)
-      self.assertTrue("Run {} is not associated with user {}".format(test_alt_run_uuid, self.test_user_uuid))
+        test_alt_run_uuid = self.send_valid_nested_post(self.test_alt_user_uuid)
+        unlink_response = self.get_unlink(self.test_user_uuid, test_alt_run_uuid)
+        self.assertTrue(
+            f"Run {test_alt_run_uuid} is not associated with user {self.test_user_uuid}"
+        )
 
     def get_unlink(self,user_uuid, run_uuid):
         return self.api_client.get(self.unlink_url.format(user_uuid, run_uuid))

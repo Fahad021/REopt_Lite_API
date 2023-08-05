@@ -54,10 +54,7 @@ class REoptError(Exception):
         elif message.startswith("PV Watts could not locate a dataset station"):
             msg_adder = ". Please increase your PV search radius parameter, or choose an alternate location with similar solar irradiance and weather trends closer to the continental US. You can also use a search radius of 0 to return PV Watts results regardless of distance to the nearest station."
 
-        if 'infeasible' not in traceback:
-            self.message = message + msg_adder  # msg_adder included in messages: error response, but not in error table
-        else:
-            self.message = message
+        self.message = message if 'infeasible' in traceback else message + msg_adder
         self.task = task
         self.run_uuid = run_uuid
         self.user_uuid = user_uuid
@@ -85,12 +82,12 @@ class REoptError(Exception):
 
         rollbar.report_message(self.name, 'error', extra_data=extra_data)
         try:
-        
+
             em = ErrorModel(task=self.task or '', name=self.name or '', run_uuid=self.run_uuid or '',
                             user_uuid=self.user_uuid or '', message=self.message or '', traceback=self.traceback or '')
             em.save()
         except:
-            message = 'Could not save {} for run_uuid {} to database: \n {}'.format(self.__name__, self.run_uuid, self.traceback)
+            message = f'Could not save {self.__name__} for run_uuid {self.run_uuid} to database: \n {self.traceback}'
             log.debug(message)
 
 
@@ -124,8 +121,15 @@ class NotOptimal(REoptError):
         msg = "REopt could not find an optimal solution for these inputs."
         if status == 'infeasible':
             msg += " An 'infeasible' status is likely due to system size constraints that prevent the load from being met during a grid outage. "\
-                    + "Please adjust the selected technologies and size constraints and try again."
-        super(NotOptimal, self).__init__(task, self.__name__, run_uuid, message=msg, traceback="status: " + status, user_uuid=user_uuid)
+                        + "Please adjust the selected technologies and size constraints and try again."
+        super(NotOptimal, self).__init__(
+            task,
+            self.__name__,
+            run_uuid,
+            message=msg,
+            traceback=f"status: {status}",
+            user_uuid=user_uuid,
+        )
 
 
 class REoptFailedToStartError(REoptError):
@@ -174,7 +178,7 @@ class UnexpectedError(REoptError):
     __name__ = 'UnexpectedError'
 
     def __init__(self, exc_type, exc_value, exc_traceback, task='', run_uuid='', user_uuid='', message=None):
-        debug_msg = "exc_type: {}; exc_value: {}; exc_traceback: {}".format(exc_type, exc_value, exc_traceback)
+        debug_msg = f"exc_type: {exc_type}; exc_value: {exc_value}; exc_traceback: {exc_traceback}"
         if message is None:
             message = "Unexpected Error."
         super(UnexpectedError, self).__init__(task=task, name=self.__name__, run_uuid=run_uuid, user_uuid=user_uuid,
@@ -205,7 +209,7 @@ class LoadProfileError(REoptError):
     __name__ = 'LoadProfileError'
 
     def __init__(self, exc_value, exc_traceback, task='', run_uuid='', user_uuid=''):
-        debug_msg = "exc_value: {}; exc_traceback: {}".format(exc_value, exc_traceback)
+        debug_msg = f"exc_value: {exc_value}; exc_traceback: {exc_traceback}"
         message = "Problem parsing load data."
         super(LoadProfileError, self).__init__(task=task, name=self.__name__, run_uuid=run_uuid, user_uuid=user_uuid,
                                                message=message, traceback=debug_msg)
@@ -236,7 +240,7 @@ class SaveToDatabase(REoptError):
     __name__ = 'SaveToDatabase'
 
     def __init__(self, exc_type, exc_value, exc_traceback, task='', run_uuid='', user_uuid='', message=None):
-        debug_msg = "exc_type: {}; exc_value: {}; exc_traceback: {}".format(exc_type, exc_value, tb.format_tb(exc_traceback))
+        debug_msg = f"exc_type: {exc_type}; exc_value: {exc_value}; exc_traceback: {tb.format_tb(exc_traceback)}"
         if message is None:
             message = "Error saving to database."
         super(SaveToDatabase, self).__init__(task=task, name=self.__name__, run_uuid=run_uuid, user_uuid=user_uuid,

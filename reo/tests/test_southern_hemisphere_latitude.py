@@ -85,10 +85,8 @@ class NegativeLatitudeTest(ResourceTestCaseMixin, TestCase):
                              )
 
         except Exception as e:
-            error_msg = None
-            if hasattr(messages, "error"):
-                error_msg = messages.error
-            print("NegativeLatitudeTest API error message: {}".format(error_msg))
-            print("Run uuid: {}".format(d['outputs']['Scenario']['run_uuid']))
+            error_msg = messages.error if hasattr(messages, "error") else None
+            print(f"NegativeLatitudeTest API error message: {error_msg}")
+            print(f"Run uuid: {d['outputs']['Scenario']['run_uuid']}")
             raise e
 

@@ -154,8 +154,6 @@ class ElecTariff(object):
 
     def make_urdb_rate(self, blended_utility_rate, demand_charge):
 
-        urdb_rate = {}
-
         # energy rate
         energyratestructure = []
         energyweekdayschedule = []
@@ -176,32 +174,29 @@ class ElecTariff(object):
             flatdemandstructure.append(rate)
 
         for month in range(0, 12):
-            energy_period = 0
-            demand_period = 0
-            for energy_rate in unique_energy_rates:
+            for energy_period, energy_rate in enumerate(unique_energy_rates):
                 if energy_rate == blended_utility_rate[month]:
                     tmp = [energy_period for _ in range(0,24)]
                     energyweekdayschedule.append(tmp)
                     energyweekendschedule.append(tmp)
-                energy_period += 1
-            for demand_rate in unique_demand_rates:
-                if demand_rate == demand_charge[month]:
-                    flatdemandmonths.append(demand_period)
-                demand_period += 1
-
-        # ouput
-        urdb_rate['energyweekdayschedule'] = energyweekdayschedule
-        urdb_rate['energyweekendschedule'] = energyweekendschedule
-        urdb_rate['energyratestructure'] = energyratestructure
-        urdb_rate['utility'] = 'user rate'
-        urdb_rate['name'] = 'user rate'
-
+            flatdemandmonths.extend(
+                demand_period
+                for demand_period, demand_rate in enumerate(unique_demand_rates)
+                if demand_rate == demand_charge[month]
+            )
+        urdb_rate = {
+            'energyweekdayschedule': energyweekdayschedule,
+            'energyweekendschedule': energyweekendschedule,
+            'energyratestructure': energyratestructure,
+            'utility': 'user rate',
+            'name': 'user rate',
+        }
         if sum(unique_demand_rates) > 0:
             urdb_rate['flatdemandstructure'] = flatdemandstructure
             urdb_rate['flatdemandmonths'] = flatdemandmonths
             urdb_rate['flatdemandunit'] = 'kW'
 
         urdb_rate['label'] = self.run_id
-        urdb_rate['name'] = "Custom_rate_" + str(self.run_id)
-        urdb_rate['utility'] = "Custom_utility_" + str(self.run_id)
+        urdb_rate['name'] = f"Custom_rate_{str(self.run_id)}"
+        urdb_rate['utility'] = f"Custom_utility_{str(self.run_id)}"
         return urdb_rate

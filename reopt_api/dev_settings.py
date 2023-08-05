@@ -124,13 +124,14 @@ ROLLBAR = {
 
 if os.environ.get('BUILD_TYPE') == 'jenkins':
     ROLLBAR['branch'] = os.environ.get('BRANCH_NAME')
-    if not os.environ.get('DB_TEST_NAME') == 'reopt_development':
+    if os.environ.get('DB_TEST_NAME') != 'reopt_development':
         ROLLBAR['enabled'] = False
 
     DATABASES = {
         'default': {
             'ENGINE': 'django.db.backends.postgresql_psycopg2',
-            'NAME': os.environ.get('DB_TEST_NAME') or 'reopt_lite_' + str(uuid.uuid4()),
+            'NAME': os.environ.get('DB_TEST_NAME')
+            or f'reopt_lite_{str(uuid.uuid4())}',
             'USER': os.environ.get('DB_USERNAME'),
             'PASSWORD': os.environ.get('DB_PASSWORD'),
             'HOST': os.environ.get('DB_HOSTNAME'),
@@ -153,18 +154,18 @@ elif 'test' in sys.argv or os.environ.get('APP_ENV') == 'local':
         }
 }
 else:
-    DATABASES = {
-         'default': {
-             'ENGINE': 'django.db.backends.postgresql_psycopg2',
-             'HOST': dev_database_host,
-             'NAME': dev_database_name,
-             'OPTIONS': {
-                 'options': '-c search_path=reopt_api'
-             },
-             'USER': dev_user,
-             'PASSWORD': dev_user_password,
-         }
-}
+        DATABASES = {
+             'default': {
+                 'ENGINE': 'django.db.backends.postgresql_psycopg2',
+                 'HOST': dev_database_host,
+                 'NAME': dev_database_name,
+                 'OPTIONS': {
+                     'options': '-c search_path=reopt_api'
+                 },
+                 'USER': dev_user,
+                 'PASSWORD': dev_user_password,
+             }
+    }
 
 # Internationalization
 # https://docs.djangoproject.com/en/1.8/topics/i18n/

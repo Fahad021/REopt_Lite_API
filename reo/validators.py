@@ -116,9 +116,10 @@ class URDB_RateValidator:
 
         # Check if in known hard problems
         if self.label in hard_problem_labels:
-            self.errors.append("URDB Rate (label={}) is currently restricted due to performance limitations".format(self.label))
+            self.errors.append(
+                f"URDB Rate (label={self.label}) is currently restricted due to performance limitations"
+            )
 
-         # Validate each attribute with custom valdidate function
         for key in dir(self):
             v = 'validate_' + key
             if hasattr(self, v):
@@ -213,14 +214,14 @@ class URDB_RateValidator:
         if all_dependencies is not None:
             for d in all_dependencies:
                 error = False
-                if hasattr(self,d):
-                    if getattr(self,d) is None:
-                        error = True
-                else:
-                    error=True
-
+                if (
+                    hasattr(self, d)
+                    and getattr(self, d) is None
+                    or not hasattr(self, d)
+                ):
+                    error = True
                 if error:
-                    self.errors.append("Missing %s a dependency of %s" % (d, name))
+                    self.errors.append(f"Missing {d} a dependency of {name}")
                     valid = False
 
         return valid
@@ -236,38 +237,49 @@ class URDB_RateValidator:
             def recursive_search(item,level=0, entry=0):
                 if type(item) == list:
                     if len(item) != expected_counts[level]:
-                        msg = 'Entry {} {}{} does not contain {} entries'.format(entry,'in sublevel ' + str(level)+ ' ' if level>0 else '', schedule_name, expected_counts[level])
+                        msg = 'Entry {} {}{} does not contain {} entries'.format(
+                            entry,
+                            f'in sublevel {str(level)} ' if level > 0 else '',
+                            schedule_name,
+                            expected_counts[level],
+                        )
                         self.errors.append(msg)
                         valid = False
                     for ii,subitem in enumerate(item):
                         recursive_search(subitem,level=level+1, entry=ii)
+
             recursive_search(schedule)
         return valid
 
     def validRate(self, rate):
         # check that each  tier in rate structure array has a rate attribute, and that all rates except one contain a 'max' attribute
         # return Boolean if any errors found
-        if hasattr(self,rate):
-            valid = True
+        if not hasattr(self, rate):
+            return False
+        valid = True
 
-            for i, r in enumerate(getattr(self, rate)):
-                if len(r) == 0:
-                    self.errors.append('Missing rate information for rate ' + str(i) + ' in ' + rate)
+        for i, r in enumerate(getattr(self, rate)):
+            if len(r) == 0:
+                self.errors.append(f'Missing rate information for rate {str(i)} in ' + rate)
+                valid = False
+            num_max_tags = 0
+            for ii, t in enumerate(r):
+                if t.get('max') is not None:
+                    num_max_tags +=1
+                if t.get('rate') is None and t.get('sell') is None and t.get('adj') is None:
+                    self.errors.append(
+                        f'Missing rate/sell/adj attributes for tier {str(ii)} in rate {str(i)} '
+                        + rate
+                    )
                     valid = False
-                num_max_tags = 0
-                for ii, t in enumerate(r):
-                    if t.get('max') is not None:
-                        num_max_tags +=1
-                    if t.get('rate') is None and t.get('sell') is None and t.get('adj') is None:
-                        self.errors.append('Missing rate/sell/adj attributes for tier ' + str(ii) + " in rate " + str(i) + ' ' + rate)
-                        valid = False
-                if len(r) > 1:
-                    num_missing_max_tags = len(r) - 1 - num_max_tags
-                    if num_missing_max_tags > 0:
-                        self.errors.append("Missing 'max' tag for {} tiers in rate {} for {}".format( num_missing_max_tags, i, rate ))
-                        valid = False
-            return valid
-        return False
+            if len(r) > 1:
+                num_missing_max_tags = len(r) - 1 - num_max_tags
+                if num_missing_max_tags > 0:
+                    self.errors.append(
+                        f"Missing 'max' tag for {num_missing_max_tags} tiers in rate {i} for {rate}"
+                    )
+                    valid = False
+        return valid
 
     def validSchedule(self, schedules, rate):
         # check that each rate an a schedule array has a valid set of tiered rates in the associated rate struture attribute
@@ -285,11 +297,12 @@ class URDB_RateValidator:
                 for period in periods:
                     if period > len(getattr(self, rate)) - 1 or period < 0:
                         self.errors.append(
-                            '%s contains value %s which has no associated rate in %s' % (schedules, period, rate))
+                            f'{schedules} contains value {period} which has no associated rate in {rate}'
+                        )
                         valid = False
                 return valid
             else:
-                self.warnings.append('{} does not exist to check {}'.format(rate,schedules))
+                self.warnings.append(f'{rate} does not exist to check {schedules}')
         return False
 
 
@@ -374,13 +387,10 @@ class ValidateNestedInput:
             self.invalid_inputs = []
             self.resampled_inputs = []
             self.defaults_inserted = []
-            self.input_dict = dict()
-            self.input_dict['Scenario'] = input_dict.get('Scenario') or {}
-
-            for k,v in input_dict.items():
-                if k != 'Scenario':
-                    self.invalid_inputs.append([k, ["Top Level"]])
-
+            self.input_dict = {'Scenario': input_dict.get('Scenario') or {}}
+            self.invalid_inputs.extend(
+                [k, ["Top Level"]] for k, v in input_dict.items() if k != 'Scenario'
+            )
             self.recursively_check_input_dict(self.nested_input_definitions, self.remove_invalid_keys)
             self.recursively_check_input_dict(self.input_dict, self.remove_nones)
             self.recursively_check_input_dict(self.nested_input_definitions, self.convert_data_types)
@@ -391,18 +401,11 @@ class ValidateNestedInput:
 
         @property
         def isValid(self):
-            if self.input_data_errors or self.urdb_errors:
-                return False
-
-            return True
+            return not self.input_data_errors and not self.urdb_errors
 
         @property
         def messages(self):
-            output = {}
-
-            if self.errors != {}:
-                output = self.errors
-
+            output = self.errors if self.errors != {} else {}
             if self.warnings != {}:
                 output['warnings'] = self.warnings
 
@@ -431,12 +434,13 @@ class ValidateNestedInput:
                 output["error"] = "Invalid inputs. See 'input_errors'."
                 output["input_errors"] = self.input_data_errors
 
-            if self.urdb_errors and self.input_data_errors:
-                output["input_errors"] += self.urdb_errors
+            if self.urdb_errors:
+                if self.input_data_errors:
+                    output["input_errors"] += self.urdb_errors
 
-            elif self.urdb_errors:
-                output["error"] = "Invalid inputs. See 'input_errors'."
-                output["input_errors"] = self.urdb_errors
+                else:
+                    output["error"] = "Invalid inputs. See 'input_errors'."
+                    output["input_errors"] = self.urdb_errors
 
             return output
 
@@ -591,8 +595,8 @@ class ValidateNestedInput:
             if real_values is not None:
                 rv = copy.deepcopy(real_values)
                 for name, value in rv.items():
-                    if self.isAttribute(name):
-                        if value is None:
+                    if value is None:
+                        if self.isAttribute(name):
                             self.delete_attribute(object_name_path, name)
                             self.input_as_none.append([name, object_name_path[-1]])
 
@@ -640,12 +644,12 @@ class ValidateNestedInput:
                     self.validate_text_fields(str = real_values['description'],
                                               pattern = r'^[-0-9a-zA-Z.  $:;)(*&#_!@]*$',
                               err_msg = "description can include enlisted special characters: [-0-9a-zA-Z.  $:;)(*&#_!@] and can have 0-9, a-z, A-Z, periods, and spaces.")
-            
+
             if object_name_path[-1] == "Site":
                 if real_values.get('address') is not None:
                     self.validate_text_fields(str = real_values['address'], pattern = r'^[0-9a-zA-Z. ]*$',
                               err_msg = "Site address must not include special characters. Restricted to 0-9, a-z, A-Z, periods, and spaces.")
-            
+
             if object_name_path[-1] == "Wind":
                 if any((isinstance(real_values['max_kw'], x) for x in [float, int])):
                     if real_values['max_kw'] > 0:
@@ -689,7 +693,7 @@ class ValidateNestedInput:
                                     self.input_dict['Scenario']['Site']['LoadProfile']['loads_kw'] = b.built_in_profile
 
                                     avg_load_kw = sum(self.input_dict['Scenario']['Site']['LoadProfile']['loads_kw'])\
-                                                  / len(self.input_dict['Scenario']['Site']['LoadProfile']['loads_kw'])
+                                                          / len(self.input_dict['Scenario']['Site']['LoadProfile']['loads_kw'])
 
                                 if avg_load_kw <= 12.5:
                                     self.input_dict['Scenario']['Site']['Wind']['size_class'] = 'residential'
@@ -707,8 +711,8 @@ class ValidateNestedInput:
                                 self.input_data_errors.append(e.args[0])
 
             if object_name_path[-1] == "Generator":
-                if self.isValid:
-                    if (real_values["max_kw"] > 0 or real_values["existing_kw"] > 0):
+                if (real_values["max_kw"] > 0 or real_values["existing_kw"] > 0):
+                    if self.isValid:
                         # then replace zeros in default burn rate and slope, and set min/max kw values appropriately for
                         # REopt (which need to be in place before data is saved and passed on to celery tasks)
                         gen = real_values
@@ -735,8 +739,7 @@ class ValidateNestedInput:
 
                     if rate.urdb_dict is None:
                         self.urdb_errors.append(
-                            "Unable to download {} from URDB. Please check the input value for 'urdb_label'."
-                                .format(electric_tariff.get('urdb_label'))
+                            f"Unable to download {electric_tariff.get('urdb_label')} from URDB. Please check the input value for 'urdb_label'."
                         )
                     else:
                         electric_tariff['urdb_response'] = rate.urdb_dict
@@ -747,15 +750,14 @@ class ValidateNestedInput:
 
                     if rate.urdb_dict is None:
                         self.urdb_errors.append(
-                            "Unable to download {} from URDB. Please check the input values for 'urdb_utility_name' and 'urdb_rate_name'."
-                                .format(electric_tariff.get('urdb_rate_name'))
+                            f"Unable to download {electric_tariff.get('urdb_rate_name')} from URDB. Please check the input values for 'urdb_utility_name' and 'urdb_rate_name'."
                         )
                     else:
                         electric_tariff['urdb_response'] = rate.urdb_dict
                         self.validate_urdb_response()
 
                 if electric_tariff['add_blended_rates_to_urdb_rate']:
-                    monthly_energy = electric_tariff.get('blended_monthly_rates_us_dollars_per_kwh', True) 
+                    monthly_energy = electric_tariff.get('blended_monthly_rates_us_dollars_per_kwh', True)
                     monthly_demand = electric_tariff.get('blended_monthly_demand_charges_us_dollars_per_kw', True)
                     urdb_rate = electric_tariff.get('urdb_response', True)
 
@@ -768,13 +770,17 @@ class ValidateNestedInput:
                         if urdb_rate==True:
                             missing_keys.append("urdb_response OR urdb_label OR urdb_utility_name and urdb_rate_name")
 
-                        self.input_data_errors.append('add_blended_rates_to_urdb_rate is set to \'true\' yet missing valid entries for the following inputs: {}'.format(', '.join(missing_keys)))
+                        self.input_data_errors.append(
+                            f"add_blended_rates_to_urdb_rate is set to \'true\' yet missing valid entries for the following inputs: {', '.join(missing_keys)}"
+                        )
 
                 for blended in ['blended_monthly_demand_charges_us_dollars_per_kw','blended_monthly_rates_us_dollars_per_kwh']:
                     if electric_tariff.get(blended, False):
                         if len(electric_tariff.get(blended)) != 12:
-                            self.input_data_errors.append('{} array needs to contain 12 valid numbers.'.format(blended) )
-            
+                            self.input_data_errors.append(
+                                f'{blended} array needs to contain 12 valid numbers.'
+                            )
+
             if object_name_path[-1] == "LoadProfile":
                 for lp in ['critical_loads_kw', 'loads_kw']:
                     if real_values.get(lp) not in [None, []]:
@@ -783,10 +789,11 @@ class ValidateNestedInput:
                         if isnet is None:
                             isnet = True
                         if not isnet:
-                            # next line can fail if non-numeric values are passed in for (critical_)loads_kw
-                            if self.isValid:
-                                if min(real_values.get(lp)) < 0:
-                                    self.input_data_errors.append("{} must contain loads greater than or equal to zero.".format(lp))
+                            if min(real_values.get(lp)) < 0:
+                                if self.isValid:
+                                    self.input_data_errors.append(
+                                        f"{lp} must contain loads greater than or equal to zero."
+                                    )
 
 
                 if real_values.get('doe_reference_name') is not None:
@@ -807,49 +814,54 @@ class ValidateNestedInput:
                  the real_values would look like: {'latitude': 39.345678, 'longitude': -90.3, ... }
             :return: None
             """
-            if real_values is not None:
-                for name, value in real_values.items():
-                    if self.isAttribute(name):
-                        data_validators = template_values[name]
+            if real_values is None:
+                return
+            for name, value in real_values.items():
+                if self.isAttribute(name):
+                    data_validators = template_values[name]
 
-                        if "list_of_float" in data_validators['type'] and isinstance(value, list):
-                            if data_validators.get('min') is not None:
-                                if any([v < data_validators['min'] for v in value]):
-                                    self.input_data_errors.append(
-                                        'At least one value in %s (from %s) exceeds allowable min of %s' % (
-                                         name, self.object_name_string(object_name_path), data_validators['min']))
+                    if "list_of_float" in data_validators['type'] and isinstance(value, list):
+                        if data_validators.get('min') is not None:
+                            if any(v < data_validators['min'] for v in value):
+                                self.input_data_errors.append(
+                                    f"At least one value in {name} (from {self.object_name_string(object_name_path)}) exceeds allowable min of {data_validators['min']}"
+                                )
 
-                            if data_validators.get('max') is not None:
-                                if any([v < data_validators['max'] for v in value]):
-                                    self.input_data_errors.append(
-                                        'At least one value in %s (from %s) exceeds the allowable max of %s' % (
-                                         name, self.object_name_string(object_name_path), data_validators['max']))
-                            continue
-                        elif isinstance(data_validators['type'], list):
-                            data_type = float
-                        else:
-                            data_type = eval(data_validators['type'])
+                        if data_validators.get('max') is not None:
+                            if any(v < data_validators['max'] for v in value):
+                                self.input_data_errors.append(
+                                    f"At least one value in {name} (from {self.object_name_string(object_name_path)}) exceeds the allowable max of {data_validators['max']}"
+                                )
+                        continue
+                    elif isinstance(data_validators['type'], list):
+                        data_type = float
+                    else:
+                        data_type = eval(data_validators['type'])
 
-                        try:  # to convert input value to restricted type
-                            value = data_type(value)
-                        except:
-                            self.input_data_errors.append('Could not check min/max on %s (%s) in %s' % (
-                            name, value, self.object_name_string(object_name_path)))
-                        else:
-                            if data_validators.get('min') is not None:
-                                if value < data_validators['min']:
-                                    self.input_data_errors.append('%s value (%s) in %s exceeds allowable min %s' % (
-                                    name, value, self.object_name_string(object_name_path), data_validators['min']))
+                    try:  # to convert input value to restricted type
+                        value = data_type(value)
+                    except:
+                        self.input_data_errors.append(
+                            f'Could not check min/max on {name} ({value}) in {self.object_name_string(object_name_path)}'
+                        )
+                    else:
+                        if data_validators.get('min') is not None:
+                            if value < data_validators['min']:
+                                self.input_data_errors.append(
+                                    f"{name} value ({value}) in {self.object_name_string(object_name_path)} exceeds allowable min {data_validators['min']}"
+                                )
 
-                            if data_validators.get('max') is not None:
-                                if value > data_validators['max']:
-                                    self.input_data_errors.append('%s value (%s) in %s exceeds allowable max %s' % (
-                                    name, value, self.object_name_string(object_name_path), data_validators['max']))
+                        if data_validators.get('max') is not None:
+                            if value > data_validators['max']:
+                                self.input_data_errors.append(
+                                    f"{name} value ({value}) in {self.object_name_string(object_name_path)} exceeds allowable max {data_validators['max']}"
+                                )
 
-                        if data_validators.get('restrict_to') is not None:
-                            if value not in data_validators['restrict_to']:
-                                self.input_data_errors.append('%s value (%s) in %s not in allowable inputs - %s' % (
-                                name, value, self.object_name_string(object_name_path), data_validators['restrict_to']))
+                    if data_validators.get('restrict_to') is not None:
+                        if value not in data_validators['restrict_to']:
+                            self.input_data_errors.append(
+                                f"{name} value ({value}) in {self.object_name_string(object_name_path)} not in allowable inputs - {data_validators['restrict_to']}"
+                            )
 
         def convert_data_types(self, object_name_path, template_values=None, real_values=None):
             """
@@ -864,55 +876,55 @@ class ValidateNestedInput:
                  the real_values would look like: {'latitude': 39.345678, 'longitude': -90.3, ... }
             :return: None
             """
-            if real_values is not None:
-                for name, value in real_values.items():
-                    if self.isAttribute(name):
-                        make_array = False
-                        attribute_type = template_values[name]['type']  # attribute_type's include list_of_float
-                        if isinstance(attribute_type, list) and \
-                                all([x in attribute_type for x in ['float', 'list_of_float']]):
-                            if isinstance(value, list):
-                                try:
-                                    series = pd.Series(value)
-                                    if series.isnull().values.any():
-                                        raise NotImplementedError
-                                    new_value = list_of_float(value)
-                                except ValueError:
-                                    self.input_data_errors.append(
-                                        'Could not convert %s (%s) in %s to list of floats' % (name, value,
-                                                         self.object_name_string(object_name_path))
-                                    )
-                                    continue  # both continue statements should be in a finally clause, ...
-                                except NotImplementedError:
-                                    self.input_data_errors.append(
-                                        '%s in %s contains at least one NaN value.' % (name,
-                                        self.object_name_string(object_name_path))
-                                    )
-                                    continue  # both continue statements should be in a finally clause, ...
-                                else:
-                                    self.update_attribute_value(object_name_path, name, new_value)
-                                    self.validate_8760(attr=new_value, obj_name=object_name_path[-1], attr_name=name,
-                                                       time_steps_per_hour=self.input_dict['Scenario']['time_steps_per_hour'])
-                                    continue  # ... but python 2.7  does not support continue in finally clauses
+            if real_values is None:
+                return
+            for name, value in real_values.items():
+                if self.isAttribute(name):
+                    make_array = False
+                    attribute_type = template_values[name]['type']  # attribute_type's include list_of_float
+                    if isinstance(attribute_type, list) and all(
+                        x in attribute_type for x in ['float', 'list_of_float']
+                    ):
+                        if isinstance(value, list):
+                            try:
+                                series = pd.Series(value)
+                                if series.isnull().values.any():
+                                    raise NotImplementedError
+                                new_value = list_of_float(value)
+                            except ValueError:
+                                self.input_data_errors.append(
+                                    f'Could not convert {name} ({value}) in {self.object_name_string(object_name_path)} to list of floats'
+                                )
+                                continue  # both continue statements should be in a finally clause, ...
+                            except NotImplementedError:
+                                self.input_data_errors.append(
+                                    f'{name} in {self.object_name_string(object_name_path)} contains at least one NaN value.'
+                                )
+                                continue  # both continue statements should be in a finally clause, ...
                             else:
-                                attribute_type = 'float'
-                                make_array = True
-                        attribute_type = eval(attribute_type)  # convert string to python type
-                        try:  # to convert input value to type defined in nested_input_definitions
-                            new_value = attribute_type(value)
-                        except:  # if fails for any reason record that the conversion failed
-                            self.input_data_errors.append('Could not convert %s (%s) in %s to %s' % (name, value,
-                                     self.object_name_string(object_name_path), str(attribute_type).split(' ')[1]))
-                        else:
-                            if not isinstance(new_value, bool):
-                                if make_array:
-                                    new_value = [new_value]
                                 self.update_attribute_value(object_name_path, name, new_value)
-                            else:
-                                if value not in [True, False, 1, 0]:
-                                    self.input_data_errors.append('Could not convert %s (%s) in %s to %s' % (
-                                    name, value, self.object_name_string(object_name_path),
-                                    str(attribute_type).split(' ')[1]))
+                                self.validate_8760(attr=new_value, obj_name=object_name_path[-1], attr_name=name,
+                                                   time_steps_per_hour=self.input_dict['Scenario']['time_steps_per_hour'])
+                                continue  # ... but python 2.7  does not support continue in finally clauses
+                        else:
+                            attribute_type = 'float'
+                            make_array = True
+                    attribute_type = eval(attribute_type)  # convert string to python type
+                    try:  # to convert input value to type defined in nested_input_definitions
+                        new_value = attribute_type(value)
+                    except:  # if fails for any reason record that the conversion failed
+                        self.input_data_errors.append(
+                            f"Could not convert {name} ({value}) in {self.object_name_string(object_name_path)} to {str(attribute_type).split(' ')[1]}"
+                        )
+                    else:
+                        if not isinstance(new_value, bool):
+                            if make_array:
+                                new_value = [new_value]
+                            self.update_attribute_value(object_name_path, name, new_value)
+                        elif value not in [True, False, 1, 0]:
+                            self.input_data_errors.append(
+                                f"Could not convert {name} ({value}) in {self.object_name_string(object_name_path)} to {str(attribute_type).split(' ')[1]}"
+                            )
 
         def fillin_defaults(self, object_name_path, template_values=None, real_values=None):
             """
@@ -985,24 +997,23 @@ class ValidateNestedInput:
                             for replace in replacements:
                                 missing = list(set(replace)-set(real_values.keys()))
 
-                                if missing == []:
-                                    missing_attribute_sets = []
-                                    break
-
-                                else:
+                                if missing:
                                     replace = sorted(replace)
                                     if replace not in missing_attribute_sets:
                                         missing_attribute_sets.append(replace)
 
-                    else:
-                        if real_values.get(key) is not None:
-                            missing = []
-                            for dependent_key in depends_on:
-                                if real_values.get(dependent_key) is None:
-                                    missing.append(dependent_key)
+                                else:
+                                    missing_attribute_sets = []
+                                    break
 
-                            if missing !=[]:
-                                missing_attribute_sets.append(missing)
+                    elif real_values.get(key) is not None:
+                        missing = [
+                            dependent_key
+                            for dependent_key in depends_on
+                            if real_values.get(dependent_key) is None
+                        ]
+                        if missing !=[]:
+                            missing_attribute_sets.append(missing)
 
                     if len(missing_attribute_sets) > 0:
                         missing_attribute_sets = sorted(missing_attribute_sets)
@@ -1010,7 +1021,7 @@ class ValidateNestedInput:
                         if message not in all_missing_attribute_sets:
                             all_missing_attribute_sets.append(message)
 
-            if len(all_missing_attribute_sets) > 0:
+            if all_missing_attribute_sets:
                 final_message = " AND ".join(all_missing_attribute_sets)
 
             # check simple required attributes
@@ -1021,15 +1032,17 @@ class ValidateNestedInput:
                         if real_values.get(template_key) is None:
                             missing.append(template_key)
 
-            if len(missing) > 0:
+            if missing:
                 message = ' and '.join(missing)
-                if final_message != '':
-                    final_message += ' and ' + message
-                else:
+                if not final_message:
                     final_message = message
 
+                else:
+                    final_message += f' and {message}'
             if final_message != '':
-                self.input_data_errors.append('Missing Required for %s: %s' % (self.object_name_string(object_name_path), final_message))
+                self.input_data_errors.append(
+                    f'Missing Required for {self.object_name_string(object_name_path)}: {final_message}'
+                )
 
 
         def validate_urdb_response(self):
@@ -1064,54 +1077,85 @@ class ValidateNestedInput:
             n = len(attr)
             length_list = [8760, 17520, 35040]
 
-            if time_steps_per_hour != 1:
-                if n not in length_list:
-                    self.input_data_errors.append(
-                        "Invalid length for {}. Samples must be hourly (8,760 samples), 30 minute (17,520 samples), or 15 minute (35,040 samples)".format(attr_name)
+            if (
+                time_steps_per_hour != 1
+                and n in length_list
+                and attr_name
+                in [
+                    "wholesale_rate_us_dollars_per_kwh",
+                    "wholesale_rate_above_site_load_us_dollars_per_kwh",
+                ]
+                and time_steps_per_hour != n / 8760
+            ):
+                if time_steps_per_hour == 2 and n == 35040:
+                    self.resampled_inputs.append(
+                        [
+                            f"Downsampled {attr_name} from 15 minute resolution to 30 minute resolution to match time_steps_per_hour via average.",
+                            [obj_name],
+                        ]
                     )
-                elif attr_name in ["wholesale_rate_us_dollars_per_kwh", "wholesale_rate_above_site_load_us_dollars_per_kwh"]:
-                    if time_steps_per_hour != n/8760:
-                        if time_steps_per_hour == 2 and n/8760 == 4:
-                            self.resampled_inputs.append(
-                                ["Downsampled {} from 15 minute resolution to 30 minute resolution to match time_steps_per_hour via average.".format(attr_name), [obj_name]])
-                            index = pd.date_range('1/1/2000', periods=n, freq='15T')
-                            series = pd.Series(attr, index=index)
-                            series = series.resample('30T').mean()
-                            resampled_val = series.tolist()
-                        elif time_steps_per_hour == 4 and n/8760 == 2:
-                            self.resampled_inputs.append(
-                                ["Upsampled {} from 30 minute resolution to 15 minute resolution to match time_steps_per_hour via forward-fill.".format(attr_name), [obj_name]])
-                            resampled_val = [x for x in attr for _ in [1, 2]]
-                        elif time_steps_per_hour == 4 and n/8760 == 1:
-                            self.resampled_inputs.append(
-                                ["Upsampled {} from hourly resolution to 15 minute resolution to match time_steps_per_hour via forward-fill.".format(attr_name), [obj_name]])
-                            resampled_val = [x for x in attr for _ in [1, 2, 3, 4]]
-                        else:  # time_steps_per_hour == 2 and n/8760 == 1:
-                            self.resampled_inputs.append(
-                                ["Upsampled {} from hourly resolution to 30 minute resolution to match time_steps_per_hour via forward-fill.".format(attr_name), [obj_name]])
-                            resampled_val = [x for x in attr for _ in [1, 2]]
-                        self.update_attribute_value(["Scenario", "Site", obj_name], attr_name, resampled_val)
+                    index = pd.date_range('1/1/2000', periods=n, freq='15T')
+                    series = pd.Series(attr, index=index)
+                    series = series.resample('30T').mean()
+                    resampled_val = series.tolist()
+                elif time_steps_per_hour == 4 and n == 17520:
+                    self.resampled_inputs.append(
+                        [
+                            f"Upsampled {attr_name} from 30 minute resolution to 15 minute resolution to match time_steps_per_hour via forward-fill.",
+                            [obj_name],
+                        ]
+                    )
+                    resampled_val = [x for x in attr for _ in [1, 2]]
+                elif time_steps_per_hour == 4 and n == 8760:
+                    self.resampled_inputs.append(
+                        [
+                            f"Upsampled {attr_name} from hourly resolution to 15 minute resolution to match time_steps_per_hour via forward-fill.",
+                            [obj_name],
+                        ]
+                    )
+                    resampled_val = [x for x in attr for _ in [1, 2, 3, 4]]
+                else:  # time_steps_per_hour == 2 and n/8760 == 1:
+                    self.resampled_inputs.append(
+                        [
+                            f"Upsampled {attr_name} from hourly resolution to 30 minute resolution to match time_steps_per_hour via forward-fill.",
+                            [obj_name],
+                        ]
+                    )
+                    resampled_val = [x for x in attr for _ in [1, 2]]
+                self.update_attribute_value(["Scenario", "Site", obj_name], attr_name, resampled_val)
 
-            elif n == 8760:
-                pass  # because n/8760 == time_steps_per_hour ( = 1 )
-
-            elif n in [17520, 35040]:
+            elif (
+                time_steps_per_hour != 1
+                and n in length_list
+                and attr_name
+                in [
+                    "wholesale_rate_us_dollars_per_kwh",
+                    "wholesale_rate_above_site_load_us_dollars_per_kwh",
+                ]
+                or time_steps_per_hour != 1
+                and n in length_list
+            ):
+                pass
+            elif time_steps_per_hour != 1 or n not in [8760, 17520, 35040]:
+                self.input_data_errors.append(
+                    f"Invalid length for {attr_name}. Samples must be hourly (8,760 samples), 30 minute (17,520 samples), or 15 minute (35,040 samples)"
+                )
+            elif n != 8760:
                 resolution_minutes = int(60/(n/8760))
                 self.resampled_inputs.append(
-                    ["Downsampled {} from {} minute resolution to hourly resolution to match time_steps_per_hour via average.".format(
-                            attr_name, resolution_minutes), [obj_name]])
-                index = pd.date_range('1/1/2000', periods=n, freq='{}T'.format(resolution_minutes))
+                    [
+                        f"Downsampled {attr_name} from {resolution_minutes} minute resolution to hourly resolution to match time_steps_per_hour via average.",
+                        [obj_name],
+                    ]
+                )
+                index = pd.date_range('1/1/2000', periods=n, freq=f'{resolution_minutes}T')
                 series = pd.Series(attr, index=index)
                 series = series.resample('1H').mean()
                 self.update_attribute_value(["Scenario", "Site", obj_name], attr_name, series.tolist())
-            else:
-                self.input_data_errors.append("Invalid length for {}. Samples must be hourly (8,760 samples), 30 minute (17,520 samples), or 15 minute (35,040 samples)".format(attr_name))
 
         def validate_text_fields(self, pattern=r'^[-0-9a-zA-Z  $:;)(*&#!@]*$', str="", err_msg=""):
             match = re.search(pattern, str)
-            if match:
-                pass
-            else:
+            if not match:
                 self.input_data_errors.append(err_msg)
 
         def validate_user_uuid(self, user_uuid="", err_msg=""):

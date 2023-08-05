@@ -82,6 +82,8 @@ def process_results(self, dfm_list, data, meta, saveToDB=True):
     :return: None
     """
 
+
+
     class Results:
 
         bau_attributes = [
@@ -117,13 +119,13 @@ def process_results(self, dfm_list, data, meta, saveToDB=True):
             # remove invalid sizes due to optimization error margins
             for r in [results_dict, results_dict_bau]:
                 for key, value in r.items():
-                    if key.endswith('kw') or key.endswith('kwh'):
-                        if value < 0:
+                    if value < 0:
+                        if key.endswith('kw') or key.endswith('kwh'):
                             r[key] = 0
 
             # add bau outputs to results_dict
             for k in Results.bau_attributes:
-                results_dict[k + '_bau'] = results_dict_bau[k]
+                results_dict[f'{k}_bau'] = results_dict_bau[k]
 
             # b/c of PV & PVNM techs in REopt, if both are zero then no value is written to REopt_results.json
             if results_dict.get('pv_kw') is None:
@@ -144,8 +146,7 @@ def process_results(self, dfm_list, data, meta, saveToDB=True):
 
         def get_output(self):
             self.get_nested()
-            output_dict = self.nested_outputs
-            return output_dict
+            return self.nested_outputs
 
         @staticmethod
         def setup_nested():
@@ -153,14 +154,13 @@ def process_results(self, dfm_list, data, meta, saveToDB=True):
             Set up up empty nested dict for outputs.
             :return: nested dict for outputs with values set to None. Results are filled in using "get_nested" method
             """
-            nested_outputs = dict()
-            nested_outputs["Scenario"] = dict()
-            nested_outputs["Scenario"]["Profile"] = dict()
-            nested_outputs["Scenario"]["Site"] = dict()
+            nested_outputs = {"Scenario": {}}
+            nested_outputs["Scenario"]["Profile"] = {}
+            nested_outputs["Scenario"]["Site"] = {}
 
             # Loop through all sub-site dicts and init
             for name, d in nested_output_definitions["outputs"]["Scenario"]["Site"].items():
-                nested_outputs["Scenario"]["Site"][name] = dict()
+                nested_outputs["Scenario"]["Site"][name] = {}
                 for k in d.keys():
                     nested_outputs["Scenario"]["Site"][name].setdefault(k, None)
             return nested_outputs
@@ -354,7 +354,7 @@ def process_results(self, dfm_list, data, meta, saveToDB=True):
             self.nested_outputs["Scenario"]["Profile"]["parse_run_outputs_seconds"] = self.profiler.getDuration()
 
         def compute_total_power(self, tech):
-            power_lists = list()
+            power_lists = []
             d = self.nested_outputs["Scenario"]["Site"][tech]
 
             if d.get("year_one_to_load_series_kw") is not None:
@@ -366,8 +366,8 @@ def process_results(self, dfm_list, data, meta, saveToDB=True):
             if d.get("year_one_to_grid_series_kw") is not None:
                 power_lists.append(d["year_one_to_grid_series_kw"])
 
-            power = [sum(x) for x in zip(*power_lists)]
-            return power
+            return [sum(x) for x in zip(*power_lists)]
+
 
     self.data = data
     self.run_uuid = data['outputs']['Scenario']['run_uuid']
@@ -388,6 +388,6 @@ def process_results(self, dfm_list, data, meta, saveToDB=True):
 
     except Exception:
         exc_type, exc_value, exc_traceback = sys.exc_info()
-        log.info("Results.py raising the error: {}, detail: {}".format(exc_type, exc_value))
+        log.info(f"Results.py raising the error: {exc_type}, detail: {exc_value}")
         raise UnexpectedError(exc_type, exc_value.args[0], traceback.format_tb(exc_traceback), task=self.name, run_uuid=self.run_uuid,
                               user_uuid=self.user_uuid)

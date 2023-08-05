@@ -473,7 +473,7 @@ class BadPost(models.Model):
         try:
             super(BadPost, self).save()
         except Exception as e:
-            log.info("Database saving error: {}".format(e.args[0]))
+            log.info(f"Database saving error: {e.args[0]}")
 
 
 def attribute_inputs(inputs):
@@ -577,10 +577,12 @@ class ModelManager(object):
         GeneratorModel.objects.filter(run_uuid=run_uuid).update(**attribute_inputs(d['Site']['Generator']))
 
         for message_type, message in data['messages'].items():
-            if len(MessageModel.objects.filter(run_uuid=run_uuid, message=message)) > 0:
-                # message already saved
-                pass
-            else:
+            if (
+                len(
+                    MessageModel.objects.filter(run_uuid=run_uuid, message=message)
+                )
+                <= 0
+            ):
                 MessageModel.create(run_uuid=run_uuid, message_type=message_type, message=message)
 
     @staticmethod
@@ -593,10 +595,12 @@ class ModelManager(object):
         d = data["outputs"]["Scenario"]
         ScenarioModel.objects.filter(run_uuid=run_uuid).update(**attribute_inputs(d))
         for message_type, message in data['messages'].items():
-            if len(MessageModel.objects.filter(run_uuid=run_uuid, message=message)) > 0:
-                # message already saved
-                pass
-            else:
+            if (
+                len(
+                    MessageModel.objects.filter(run_uuid=run_uuid, message=message)
+                )
+                <= 0
+            ):
                 MessageModel.create(run_uuid=run_uuid, message_type=message_type, message=message)
 
     @staticmethod
@@ -628,7 +632,7 @@ class ModelManager(object):
 
         def move_outs_to_ins(site_key, resp):
 
-            resp['inputs']['Scenario']['Site'][site_key] = dict()
+            resp['inputs']['Scenario']['Site'][site_key] = {}
 
             for k in nested_input_definitions['Scenario']['Site'][site_key].keys():
 
@@ -639,7 +643,7 @@ class ModelManager(object):
                     if isinstance(resp['inputs']['Scenario']['Site'][site_key][k], list):
                         if len(resp['inputs']['Scenario']['Site'][site_key][k]) == 1:
                             resp['inputs']['Scenario']['Site'][site_key][k] = \
-                                resp['inputs']['Scenario']['Site'][site_key][k][0]
+                                    resp['inputs']['Scenario']['Site'][site_key][k][0]
                     del resp['outputs']['Scenario']['Site'][site_key][k]
                 except KeyError:  # known exception for k = urdb_response (user provided blended rates)
                     resp['inputs']['Scenario']['Site'][site_key][k] = None
@@ -647,22 +651,22 @@ class ModelManager(object):
         # add try/except for get fail / bad run_uuid
         site_keys = ['PV', 'Storage', 'Financial', 'LoadProfile', 'ElectricTariff', 'Generator', 'Wind']
 
-        resp = dict()
-        resp['outputs'] = dict()
-        resp['outputs']['Scenario'] = dict()
-        resp['outputs']['Scenario']['Profile'] = dict()
-        resp['inputs'] = dict()
-        resp['inputs']['Scenario'] = dict()
-        resp['inputs']['Scenario']['Site'] = dict()
-        resp['messages'] = dict()
+        resp = {}
+        resp['outputs'] = {}
+        resp['outputs']['Scenario'] = {}
+        resp['outputs']['Scenario']['Profile'] = {}
+        resp['inputs'] = {}
+        resp['inputs']['Scenario'] = {}
+        resp['inputs']['Scenario']['Site'] = {}
+        resp['messages'] = {}
 
         try:
             scenario_model = ScenarioModel.objects.get(run_uuid=run_uuid)
         except Exception as e:
             if isinstance(e, models.ObjectDoesNotExist):
                 resp['messages']['error'] = "run_uuid {} not in database. "\
-                                            "You may have hit the results endpoint too quickly after POST'ing scenario, "\
-                                            "you may have a typo in your run_uuid, or the scenario was deleted.".format(run_uuid)
+                                                "You may have hit the results endpoint too quickly after POST'ing scenario, "\
+                                                "you may have a typo in your run_uuid, or the scenario was deleted.".format(run_uuid)
                 resp['outputs']['Scenario']['status'] = 'error'
                 return resp
             else:

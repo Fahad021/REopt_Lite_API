@@ -53,11 +53,8 @@ hard_problem_labels = [i[0] for i in csv.reader(open(hard_problems_csv, 'r'))]
 
 
 def make_error_resp(msg):
-        resp = dict()
-        resp['messages'] = {'error': msg}
-        resp['outputs'] = dict()
-        resp['outputs']['Scenario'] = dict()
-        resp['outputs']['Scenario']['status'] = 'error'
+        resp = {'messages': {'error': msg}, 'outputs': {}}
+        resp['outputs']['Scenario'] = {'status': 'error'}
         return resp
 
 
@@ -69,65 +66,70 @@ def errors(request, page_uuid):
 
 def help(request):
 
-    try:
-        response = copy.deepcopy(nested_input_definitions)
-        return JsonResponse(response)
+        try:
+                response = copy.deepcopy(nested_input_definitions)
+                return JsonResponse(response)
 
-    except Exception as e:
-        return JsonResponse({"Error": "Unexpected error in help endpoint: {}".format(e.args[0])})
+        except Exception as e:
+                return JsonResponse({
+                    "Error":
+                    f"Unexpected error in help endpoint: {e.args[0]}"
+                })
 
 
 def invalid_urdb(request):
 
-    try:
-        # invalid set is populated by the urdb validator, hard problems defined in csv
-        invalid_set = list(set([i.label for i in URDBError.objects.filter(type='Error')]))
-        return JsonResponse({"Invalid IDs": list(set(invalid_set + hard_problem_labels))})
-        
-    except Exception as e:
-        return JsonResponse({"Error": "Unexpected error in invalid_urdb endpoint: {}".format(e.args[0])})
+        try:
+                        # invalid set is populated by the urdb validator, hard problems defined in csv
+                invalid_set = list({i.label for i in URDBError.objects.filter(type='Error')})
+                return JsonResponse({"Invalid IDs": list(set(invalid_set + hard_problem_labels))})
+
+        except Exception as e:
+                return JsonResponse({
+                    "Error":
+                    f"Unexpected error in invalid_urdb endpoint: {e.args[0]}"
+                })
 
 
 def annual_kwh(request):
 
-    try:
-        latitude = float(request.GET['latitude'])  # need float to convert unicode
-        longitude = float(request.GET['longitude'])
-        doe_reference_name = request.GET['doe_reference_name']
+        try:
+                latitude = float(request.GET['latitude'])  # need float to convert unicode
+                longitude = float(request.GET['longitude'])
+                doe_reference_name = request.GET['doe_reference_name']
 
-        if doe_reference_name not in BuiltInProfile.default_buildings:
-            raise ValueError("Invalid doe_reference_name. Select from the following: {}"
-                             .format(BuiltInProfile.default_buildings))
+                if doe_reference_name not in BuiltInProfile.default_buildings:
+                        raise ValueError(
+                            f"Invalid doe_reference_name. Select from the following: {BuiltInProfile.default_buildings}"
+                        )
 
-        if latitude > 90 or latitude < -90:
-            raise ValueError("latitude out of acceptable range (-90 <= latitude <= 90)")
+                if latitude > 90 or latitude < -90:
+                    raise ValueError("latitude out of acceptable range (-90 <= latitude <= 90)")
 
-        if longitude > 180 or longitude < -180:
-            raise ValueError("longitude out of acceptable range (-180 <= longitude <= 180)")
+                if longitude > 180 or longitude < -180:
+                    raise ValueError("longitude out of acceptable range (-180 <= longitude <= 180)")
 
-        uuidFilter = UUIDFilter('no_id')
-        log.addFilter(uuidFilter)
-        b = BuiltInProfile(latitude=latitude, longitude=longitude, doe_reference_name=doe_reference_name)
-        
-        response = JsonResponse(
-            {'annual_kwh': b.annual_kwh,
-             'city': b.city},
-        )
-        return response
+                uuidFilter = UUIDFilter('no_id')
+                log.addFilter(uuidFilter)
+                b = BuiltInProfile(latitude=latitude, longitude=longitude, doe_reference_name=doe_reference_name)
 
-    except KeyError as e:
-        return JsonResponse({"Error. Missing": str(e.args[0])})
+                return JsonResponse(
+                    {
+                        'annual_kwh': b.annual_kwh,
+                        'city': b.city
+                    }, )
+        except KeyError as e:
+            return JsonResponse({"Error. Missing": str(e.args[0])})
 
-    except ValueError as e:
-        return JsonResponse({"Error": str(e.args[0])})
+        except ValueError as e:
+            return JsonResponse({"Error": str(e.args[0])})
 
-    except Exception as e:
+        except Exception as e:
 
-        exc_type, exc_value, exc_traceback = sys.exc_info()
-        debug_msg = "exc_type: {}; exc_value: {}; exc_traceback: {}".format(exc_type, exc_value.args[0],
-                                                                            tb.format_tb(exc_traceback))
-        log.debug(debug_msg)
-        return JsonResponse({"Error": "Unexpected error in annual_kwh endpoint. Check log for more."})
+                exc_type, exc_value, exc_traceback = sys.exc_info()
+                debug_msg = f"exc_type: {exc_type}; exc_value: {exc_value.args[0]}; exc_traceback: {tb.format_tb(exc_traceback)}"
+                log.debug(debug_msg)
+                return JsonResponse({"Error": "Unexpected error in annual_kwh endpoint. Check log for more."})
 
 
 def remove(request, run_uuid):
@@ -143,91 +145,86 @@ def remove(request, run_uuid):
         return JsonResponse(resp)
 
 def results(request, run_uuid):
-    try:
-        uuid.UUID(run_uuid)  # raises ValueError if not valid uuid
+        try:
+            uuid.UUID(run_uuid)  # raises ValueError if not valid uuid
 
-    except ValueError as e:
-        if e.args[0] == "badly formed hexadecimal UUID string":
-            resp = make_error_resp(e.args[0])
-            return JsonResponse(resp, status=400)
-        else:
+        except ValueError as e:
+            if e.args[0] == "badly formed hexadecimal UUID string":
+                resp = make_error_resp(e.args[0])
+                return JsonResponse(resp, status=400)
+            else:
+                exc_type, exc_value, exc_traceback = sys.exc_info()
+                err = UnexpectedError(exc_type, exc_value.args[0], tb.format_tb(exc_traceback), task='results', run_uuid=run_uuid)
+                err.save_to_db()
+                return JsonResponse({"Error": str(err.args[0])}, status=400)
+
+        try:
+                d = ModelManager.make_response(run_uuid)  # ModelManager has some internal exception handling
+
+                return JsonResponse(d)
+        except Exception:
+
             exc_type, exc_value, exc_traceback = sys.exc_info()
-            err = UnexpectedError(exc_type, exc_value.args[0], tb.format_tb(exc_traceback), task='results', run_uuid=run_uuid)
+            err = UnexpectedError(exc_type, exc_value.args[0], tb.format_tb(exc_traceback), task='reo.views.results', run_uuid=run_uuid)
             err.save_to_db()
-            return JsonResponse({"Error": str(err.args[0])}, status=400)
-
-    try:
-        d = ModelManager.make_response(run_uuid)  # ModelManager has some internal exception handling
-
-        response = JsonResponse(d)
-        return response
-
-    except Exception:
-
-        exc_type, exc_value, exc_traceback = sys.exc_info()
-        err = UnexpectedError(exc_type, exc_value.args[0], tb.format_tb(exc_traceback), task='reo.views.results', run_uuid=run_uuid)
-        err.save_to_db()
-        resp = make_error_resp(err.message)
-        return JsonResponse(resp)
+            resp = make_error_resp(err.message)
+            return JsonResponse(resp)
 
 
 def simulated_load(request):
-    try:
-        latitude = float(request.GET['latitude'])  # need float to convert unicode
-        longitude = float(request.GET['longitude'])
-        doe_reference_name = request.GET['doe_reference_name']
+        try:
+                latitude = float(request.GET['latitude'])  # need float to convert unicode
+                longitude = float(request.GET['longitude'])
+                doe_reference_name = request.GET['doe_reference_name']
 
-        try:  # annual_kwh is optional. if not provided, then DOE reference value is used.
-            annual_kwh = float(request.GET['annual_kwh'])
-        except KeyError:
-            annual_kwh = None
+                try:  # annual_kwh is optional. if not provided, then DOE reference value is used.
+                    annual_kwh = float(request.GET['annual_kwh'])
+                except KeyError:
+                    annual_kwh = None
 
-        try:  # monthly_totals_kwh is optional. if not provided, then DOE reference value is used.
-            monthly_totals_kwh = float(request.GET['monthly_totals_kwh'])
-        except KeyError:
-            monthly_totals_kwh = None
+                try:  # monthly_totals_kwh is optional. if not provided, then DOE reference value is used.
+                    monthly_totals_kwh = float(request.GET['monthly_totals_kwh'])
+                except KeyError:
+                    monthly_totals_kwh = None
 
-        if doe_reference_name not in BuiltInProfile.default_buildings:
-            raise ValueError("Invalid doe_reference_name. Select from the following: {}"
-                             .format(BuiltInProfile.default_buildings))
+                if doe_reference_name not in BuiltInProfile.default_buildings:
+                        raise ValueError(
+                            f"Invalid doe_reference_name. Select from the following: {BuiltInProfile.default_buildings}"
+                        )
 
-        if latitude > 90 or latitude < -90:
-            raise ValueError("latitude out of acceptable range (-90 <= latitude <= 90)")
+                if latitude > 90 or latitude < -90:
+                    raise ValueError("latitude out of acceptable range (-90 <= latitude <= 90)")
 
-        if longitude > 180 or longitude < -180:
-            raise ValueError("longitude out of acceptable range (-180 <= longitude <= 180)")
+                if longitude > 180 or longitude < -180:
+                    raise ValueError("longitude out of acceptable range (-180 <= longitude <= 180)")
 
-        b = BuiltInProfile(latitude=latitude, longitude=longitude, doe_reference_name=doe_reference_name,
-                           annual_kwh=annual_kwh, monthly_totals_kwh=monthly_totals_kwh)
-        lp = b.built_in_profile
+                b = BuiltInProfile(latitude=latitude, longitude=longitude, doe_reference_name=doe_reference_name,
+                                   annual_kwh=annual_kwh, monthly_totals_kwh=monthly_totals_kwh)
+                lp = b.built_in_profile
 
-        response = JsonResponse(
-            {'loads_kw': [round(ld, 3) for ld in lp],
-             'annual_kwh': b.annual_kwh,
-             'min_kw': round(min(lp), 3),
-             'mean_kw': round(sum(lp) / len(lp), 3),
-             'max_kw': round(max(lp), 3),
-             }
-        )
-        return response
+                return JsonResponse({
+                    'loads_kw': [round(ld, 3) for ld in lp],
+                    'annual_kwh': b.annual_kwh,
+                    'min_kw': round(min(lp), 3),
+                    'mean_kw': round(sum(lp) / len(lp), 3),
+                    'max_kw': round(max(lp), 3),
+                })
+        except KeyError as e:
+            return JsonResponse({"Error. Missing": str(e.args[0])})
 
-    except KeyError as e:
-        return JsonResponse({"Error. Missing": str(e.args[0])})
+        except ValueError as e:
+            return JsonResponse({"Error": str(e.args[0])})
 
-    except ValueError as e:
-        return JsonResponse({"Error": str(e.args[0])})
+        except Exception:
 
-    except Exception:
-
-        exc_type, exc_value, exc_traceback = sys.exc_info()
-        debug_msg = "exc_type: {}; exc_value: {}; exc_traceback: {}".format(exc_type, exc_value.args[0],
-                                                                            tb.format_tb(exc_traceback))
-        log.error(debug_msg)
-        return JsonResponse({"Error": "Unexpected error in simulated_load endpoint. Check log for more."})
+                exc_type, exc_value, exc_traceback = sys.exc_info()
+                debug_msg = f"exc_type: {exc_type}; exc_value: {exc_value.args[0]}; exc_traceback: {tb.format_tb(exc_traceback)}"
+                log.error(debug_msg)
+                return JsonResponse({"Error": "Unexpected error in simulated_load endpoint. Check log for more."})
 
 
 def generator_efficiency(request):
-    """
+        """
     From Navigant report / dieselfuelsupply.com, fitting a curve to the partial to full load points:
 
         CAPACITY RANGE      m [gal/kW]  b [gal]
@@ -239,28 +236,24 @@ def generator_efficiency(request):
         750 < C <= 1500 kW	0.0657	    0.0043
         1500 < C  kW	    0.0657	    0.004
     """
-    try:
-        generator_kw = float(request.GET['generator_kw'])  # need float to convert unicode
+        try:
+                generator_kw = float(request.GET['generator_kw'])  # need float to convert unicode
 
-        if generator_kw <= 0:
-            raise ValueError("Invalid generator_kw, must be greater than zero.")
+                if generator_kw <= 0:
+                    raise ValueError("Invalid generator_kw, must be greater than zero.")
 
-        m, b = Generator.default_fuel_burn_rate(generator_kw)
+                m, b = Generator.default_fuel_burn_rate(generator_kw)
 
-        response = JsonResponse(
-            {'slope_gal_per_kwh': m,
-             'intercept_gal_per_hr': b,
-             }
-        )
-        return response
+                return JsonResponse({
+                    'slope_gal_per_kwh': m,
+                    'intercept_gal_per_hr': b,
+                })
+        except ValueError as e:
+            return JsonResponse({"Error": str(e.args[0])})
 
-    except ValueError as e:
-        return JsonResponse({"Error": str(e.args[0])})
+        except Exception:
 
-    except Exception:
-
-        exc_type, exc_value, exc_traceback = sys.exc_info()
-        debug_msg = "exc_type: {}; exc_value: {}; exc_traceback: {}".format(exc_type, exc_value.args[0],
-                                                                            tb.format_tb(exc_traceback))
-        log.debug(debug_msg)
-        return JsonResponse({"Error": "Unexpected error in generator_efficiency endpoint. Check log for more."})
+                exc_type, exc_value, exc_traceback = sys.exc_info()
+                debug_msg = f"exc_type: {exc_type}; exc_value: {exc_value.args[0]}; exc_traceback: {tb.format_tb(exc_traceback)}"
+                log.debug(debug_msg)
+                return JsonResponse({"Error": "Unexpected error in generator_efficiency endpoint. Check log for more."})

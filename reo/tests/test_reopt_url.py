@@ -87,9 +87,9 @@ class EntryResourceTest(ResourceTestCaseMixin, TestCase):
             test_case = self.complete_valid_nestedpost
             remove_by_path(test_case, r)
             response = self.get_response(test_case)
-            text = "Missing Required for {}: {}".format('>'.join(r[:-1]), r[-1])
+            text = f"Missing Required for {'>'.join(r[:-1])}: {r[-1]}"
             err_msg = str(json.loads(response.content)['messages']['input_errors'])
-            self.assertTrue(text in err_msg, "'{}' not found in {}".format(text, err_msg))
+            self.assertTrue(text in err_msg, f"'{text}' not found in {err_msg}")
 
         electric_tarrif_cases = [['urdb_utility_name', 'urdb_rate_name', 'urdb_response', 'blended_monthly_demand_charges_us_dollars_per_kw'],
                                  ['urdb_utility_name', 'urdb_rate_name', 'urdb_response', 'blended_monthly_rates_us_dollars_per_kwh'],
@@ -105,12 +105,12 @@ class EntryResourceTest(ResourceTestCaseMixin, TestCase):
         load_profile_cases = [['doe_reference_name', 'annual_kwh', 'monthly_totals_kwh', 'loads_kw'],
                               ['doe_reference_name', 'loads_kw', 'annual_kwh'],
                               ['doe_reference_name', 'loads_kw', 'monthly_totals_kwh']]
+        text = "Missing Required for Scenario>Site>LoadProfile"
         for c in load_profile_cases:
             test_case = self.complete_valid_nestedpost
             for r in c:
                 del test_case['Scenario']['Site']['LoadProfile'][r]
             response = self.get_response(test_case)
-            text = "Missing Required for Scenario>Site>LoadProfile"
             self.assertTrue(text in str(json.loads(response.content)['messages']['input_errors']))
 
     def test_valid_data_types(self):
@@ -120,7 +120,7 @@ class EntryResourceTest(ResourceTestCaseMixin, TestCase):
         for attribute, test_data in validator.test_data('type'):
 
             response = self.get_response(test_data)
-            text = "Could not convert " + attribute
+            text = f"Could not convert {attribute}"
             err_msg = str(json.loads(response.content)['messages']['input_errors'])
             self.assertTrue(text in err_msg)
             self.assertTrue("(OOPS)" in err_msg)
@@ -154,19 +154,19 @@ class EntryResourceTest(ResourceTestCaseMixin, TestCase):
             text = "exceeds allowable min"
             response = self.get_response(test_data)
             err_msg = str(json.loads(response.content)['messages']['input_errors'])
-            self.assertTrue(text in err_msg, "'{}' not found in '{}'".format(text, err_msg))
+            self.assertTrue(text in err_msg, f"'{text}' not found in '{err_msg}'")
 
         for attribute, test_data in input.test_data('max'):
             text = "exceeds allowable max"
             response = self.get_response(test_data)
             err_msg = str(json.loads(response.content)['messages']['input_errors'])
-            self.assertTrue(text in err_msg, "'{}' not found in '{}'".format(text, err_msg))
+            self.assertTrue(text in err_msg, f"'{text}' not found in '{err_msg}'")
 
+        text = "not in allowable inputs"
         for attribute, test_data in input.test_data('restrict_to'):
-            text = "not in allowable inputs"
             response = self.get_response(test_data)
             err_msg = str(json.loads(response.content)['messages']['input_errors'])
-            self.assertTrue(text in err_msg, "'{}' not found in '{}'".format(text, err_msg))
+            self.assertTrue(text in err_msg, f"'{text}' not found in '{err_msg}'")
 
     def test_urdb_rate(self):
 
@@ -213,8 +213,7 @@ class EntryResourceTest(ResourceTestCaseMixin, TestCase):
         d = ModelManager.make_response(run_uuid=run_uuid)
         c = nested_to_flat(d['outputs'])
 
-        d_expected = dict()
-        d_expected['lcc'] = 10972574
+        d_expected = {'lcc': 10972574}
         d_expected['npv'] = 11257165 - d_expected['lcc']
         d_expected['pv_kw'] = 216.667
         d_expected['batt_kw'] = 29.416
@@ -224,8 +223,8 @@ class EntryResourceTest(ResourceTestCaseMixin, TestCase):
         try:
             check_common_outputs(self, c, d_expected)
         except:
-            print("Run {} expected outputs may have changed.".format(run_uuid))
-            print("Error message: {}".format(d['messages'].get('error')))
+            print(f"Run {run_uuid} expected outputs may have changed.")
+            print(f"Error message: {d['messages'].get('error')}")
             raise
 
     def test_negative_loads(self):

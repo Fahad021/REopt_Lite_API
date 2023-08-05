@@ -76,7 +76,7 @@ class TestFlexibleTimeSteps(ResourceTestCaseMixin, TestCase):
         try:
             check_common_outputs(self, c1, c2)
         except:
-            print("Run {} expected outputs may have changed.".format(run_uuid2))
-            print("Error message with ts=1: {}".format(d1['messages']))
-            print("Error message with ts=4: {}".format(d2['messages']))
+            print(f"Run {run_uuid2} expected outputs may have changed.")
+            print(f"Error message with ts=1: {d1['messages']}")
+            print(f"Error message with ts=4: {d2['messages']}")
             raise

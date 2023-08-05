@@ -218,8 +218,11 @@ class TestBlendedRate(ResourceTestCaseMixin, TestCase):
     def get_response(self, data):
         initial_post = self.api_client.post(self.submit_url, format='json', data=data)
         uuid = json.loads(initial_post.content)['run_uuid']
-        response = json.loads(self.api_client.get(self.results_url.replace('<run_uuid>', str(uuid))).content)
-        return response
+        return json.loads(
+            self.api_client.get(
+                self.results_url.replace('<run_uuid>', str(uuid))
+            ).content
+        )
 
     def test_blended_rate_and_pv_station(self):
         """

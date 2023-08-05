@@ -42,7 +42,7 @@ class IncentiveProvider(object):
 
         # ITC only applies to federal, since don't track other tax rates
         if name == 'federal':
-            self.itc = kwargs.get(name + '_itc_pct')
+            self.itc = kwargs.get(f'{name}_itc_pct')
             self.itc_max = big_number
 
             # if 0 max passed in with an incentive, treat incentive as 0
@@ -50,14 +50,14 @@ class IncentiveProvider(object):
                 self.itc = 0
 
         else: # region == 'state' or region == 'utility'
-            self.ibi = kwargs.get(name + '_ibi_pct')
-            self.ibi_max = kwargs.get(name + '_ibi_max_us_dollars', big_number)
+            self.ibi = kwargs.get(f'{name}_ibi_pct')
+            self.ibi_max = kwargs.get(f'{name}_ibi_max_us_dollars', big_number)
 
             if self.ibi_max == 0:
                 self.ibi = 0
 
-        self.rebate = kwargs.get(name + '_rebate_us_dollars_per_kw')   # $/kW
-        self.rebate_max = kwargs.get(name + '_rebate_max_us_dollars', big_number)
+        self.rebate = kwargs.get(f'{name}_rebate_us_dollars_per_kw')
+        self.rebate_max = kwargs.get(f'{name}_rebate_max_us_dollars', big_number)
 
         if self.rebate_max == 0:
             self.rebate = 0

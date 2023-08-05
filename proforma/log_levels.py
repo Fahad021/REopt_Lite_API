@@ -35,32 +35,12 @@ import inspect
 def log(level, message):
     func = inspect.currentframe().f_back.f_code
     if level == "DEBUG":
-        logging.debug("%s: %s in %s" % (
-            message,
-            func.co_name,
-            func.co_filename
-        ))
+        logging.debug(f"{message}: {func.co_name} in {func.co_filename}")
     elif level == "INFO":
-        logging.info("%s: %s in %s" % (
-            message,
-            func.co_name,
-            func.co_filename
-        ))
+        logging.info(f"{message}: {func.co_name} in {func.co_filename}")
     elif level == "WARNING":
-        logging.warning("%s: %s in %s" % (
-            message,
-            func.co_name,
-            func.co_filename
-        ))
+        logging.warning(f"{message}: {func.co_name} in {func.co_filename}")
     elif level == "ERROR":
-        logging.error("%s: %s in %s" % (
-            message,
-            func.co_name,
-            func.co_filename
-        ))
+        logging.error(f"{message}: {func.co_name} in {func.co_filename}")
     elif level == "CRITICAL":
-        logging.critical("%s: %s in %s" % (
-            message,
-            func.co_name,
-            func.co_filename
-        ))
+        logging.critical(f"{message}: {func.co_name} in {func.co_filename}")

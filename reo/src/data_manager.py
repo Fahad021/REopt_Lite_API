@@ -38,11 +38,7 @@ squarefeet_to_acre = 2.2957e-5
 
 
 def get_techs_not_none(techs, cls):
-    ret = []
-    for tech in techs:
-        if eval('cls.' + tech) is not None:
-            ret.append(tech)
-    return ret
+    return [tech for tech in techs if eval(f'cls.{tech}') is not None]
 
 
 class DataManager:
@@ -147,14 +143,14 @@ class DataManager:
             two_party_factor = 0
         else:
             two_party_factor = (pwf_offtaker * sf.offtaker_tax_pct) \
-                                / (pwf_owner * sf.owner_tax_pct)
+                                    / (pwf_owner * sf.owner_tax_pct)
 
-        levelization_factor = list()
-        production_incentive_levelization_factor = list()
+        levelization_factor = []
+        production_incentive_levelization_factor = []
 
         for tech in techs:
 
-            if eval('self.' + tech) is not None:
+            if eval(f'self.{tech}') is not None:
 
                 if tech in ['pv', 'pvnm']:  # pv has degradation
 
@@ -162,12 +158,20 @@ class DataManager:
                     # NOTE: I don't think that levelization factors should include an escalation rate.  The degradation
                     # does not escalate in out years.
                     ################
-                    degradation_pct = eval('self.' + tech + '.degradation_pct')
+                    degradation_pct = eval(f'self.{tech}.degradation_pct')
                     levelization_factor.append(round(degradation_factor(sf.analysis_years, degradation_pct), 5))
                     production_incentive_levelization_factor.append(
-                        round(degradation_factor(eval('self.' + tech + '.incentives.production_based.years'),
-                                                 degradation_pct), 5))
-                    ################
+                        round(
+                            degradation_factor(
+                                eval(
+                                    f'self.{tech}.incentives.production_based.years'
+                                ),
+                                degradation_pct,
+                            ),
+                            5,
+                        )
+                    )
+                                ################
                 else:
 
                     levelization_factor.append(1.0)
@@ -178,43 +182,47 @@ class DataManager:
     def _get_REopt_production_incentives(self, techs):
 
         sf = self.site.financial
-        pwf_prod_incent = list()
-        prod_incent_rate = list()
-        max_prod_incent = list()
-        max_size_for_prod_incent = list()
+        pwf_prod_incent = []
+        prod_incent_rate = []
+        max_prod_incent = []
+        max_size_for_prod_incent = []
 
         for tech in techs:
 
-            if eval('self.' + tech) is not None:
+            if eval(f'self.{tech}') is not None:
 
                 if tech not in ['util', 'generator']:
 
                     # prod incentives don't need escalation
                     pwf_prod_incent.append(
-                        annuity(eval('self.' + tech + '.incentives.production_based.years'),
-                                0, sf.offtaker_discount_pct)
+                        annuity(
+                            eval(f'self.{tech}.incentives.production_based.years'),
+                            0,
+                            sf.offtaker_discount_pct,
+                        )
                     )
                     max_prod_incent.append(
-                        eval('self.' + tech + '.incentives.production_based.max_us_dollars_per_kw')
+                        eval(
+                            f'self.{tech}.incentives.production_based.max_us_dollars_per_kw'
+                        )
                     )
                     max_size_for_prod_incent.append(
-                        eval('self.' + tech + '.incentives.production_based.max_kw')
+                        eval(f'self.{tech}.incentives.production_based.max_kw')
                     )
 
-                    for load in self.available_loads:
-                        prod_incent_rate.append(
-                            eval('self.' + tech + '.incentives.production_based.us_dollars_per_kw')
+                    prod_incent_rate.extend(
+                        eval(
+                            f'self.{tech}.incentives.production_based.us_dollars_per_kw'
                         )
-
+                        for _ in self.available_loads
+                    )
                 else:
 
                     pwf_prod_incent.append(0.0)
                     max_prod_incent.append(0.0)
                     max_size_for_prod_incent.append(0.0)
 
-                    for load in self.available_loads:
-                        prod_incent_rate.append(0.0)
-
+                    prod_incent_rate.extend(0.0 for _ in self.available_loads)
         return pwf_prod_incent, prod_incent_rate, max_prod_incent, max_size_for_prod_incent
 
     def _get_REopt_cost_curve(self, techs):

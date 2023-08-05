@@ -408,22 +408,18 @@ class BuiltInProfile(object):
             gdf = gdf[gdf.geometry.intersects(g.Point(self.longitude, self.latitude))]
             if not gdf.empty:
                 self.nearest_city = gdf.city.values[0].replace(' ','')
-                
-            if self.nearest_city is None:
-                # else use old geometric approach, never fails...but isn't necessarily correct
-                log.info("Using geometrically nearest city to lat/lng.")
-                min_distance = None
 
-                for i, c in enumerate(self.default_cities):
-                    distance = math.sqrt((self.latitude - c.lat) ** 2 + (self.longitude - c.lng) ** 2)
+        if self.nearest_city is None:
+            # else use old geometric approach, never fails...but isn't necessarily correct
+            log.info("Using geometrically nearest city to lat/lng.")
+            min_distance = None
 
-                    if i == 0:
-                        min_distance = distance
-                        self.nearest_city = c.name
-                    elif distance < min_distance:
-                        min_distance = distance
-                        self.nearest_city = c.name
+            for i, c in enumerate(self.default_cities):
+                distance = math.sqrt((self.latitude - c.lat) ** 2 + (self.longitude - c.lng) ** 2)
 
+                if i == 0 or distance < min_distance:
+                    min_distance = distance
+                    self.nearest_city = c.name
         return self.nearest_city
 
     @property
@@ -434,7 +430,9 @@ class BuiltInProfile(object):
     def building_type(self):
         name = self.doe_reference_name.replace(' ','')
         if name not in self.default_buildings:
-            raise AttributeError("load_profile error. Invalid doe_reference_name. Select from the following:\n{}".format(self.default_buildings))
+            raise AttributeError(
+                f"load_profile error. Invalid doe_reference_name. Select from the following:\n{self.default_buildings}"
+            )
         return name
 
     @property
@@ -475,13 +473,12 @@ class BuiltInProfile(object):
     @property
     def normalized_profile(self):
 
-        profile_path = os.path.join(BuiltInProfile.library_path, "Load8760_norm_" + self.city + "_" + self.building_type + ".dat")
-        normalized_profile = list()
+        profile_path = os.path.join(
+            BuiltInProfile.library_path,
+            f"Load8760_norm_{self.city}_{self.building_type}.dat",
+        )
         f = open(profile_path, 'r')
-        for line in f:
-            normalized_profile.append(float(line.strip('\n')))
-
-        return normalized_profile
+        return [float(line.strip('\n')) for line in f]
 
 
 class LoadProfile(BuiltInProfile):

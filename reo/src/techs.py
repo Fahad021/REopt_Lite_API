@@ -65,9 +65,7 @@ class Tech(object):
         return None
 
     def can_serve(self, load):
-        if load in self.loads_served:
-            return True
-        return False
+        return load in self.loads_served
 
 
 class Util(Tech):
@@ -151,10 +149,11 @@ class PV(Tech):
 
     @property
     def station_location(self):
-        station = (self.pvwatts.response['station_info']['lat'],
-                   self.pvwatts.response['station_info']['lon'],
-                   round(self.pvwatts.response['station_info']['distance']/1000,1))
-        return station
+        return (
+            self.pvwatts.response['station_info']['lat'],
+            self.pvwatts.response['station_info']['lon'],
+            round(self.pvwatts.response['station_info']['distance'] / 1000, 1),
+        )
 
 
 class Wind(Tech):
